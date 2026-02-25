@@ -8,7 +8,7 @@ import {
 import { useState, useCallback, useRef } from "react";
 import { useAppStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import Badge from "@/components/ui/badge";
 import { toast } from "sonner";
 
 const EXPECTED_COLUMNS = [
@@ -173,11 +173,10 @@ export default function UploadPage() {
             onDragLeave={() => setUploadState("idle")}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
-            className={`relative glass-card rounded-2xl border-2 border-dashed p-16 text-center cursor-pointer transition-all duration-300 ${
-              uploadState === "dragging"
+            className={`relative glass-card rounded-2xl border-2 border-dashed p-16 text-center cursor-pointer transition-all duration-300 ${uploadState === "dragging"
                 ? "border-indigo-500/70 bg-indigo-500/5 scale-[1.01]"
                 : "border-border hover:border-indigo-500/40 hover:bg-indigo-500/3"
-            }`}
+              }`}
           >
             <input
               ref={fileInputRef}
@@ -191,9 +190,8 @@ export default function UploadPage() {
               transition={{ duration: 0.2 }}
               className="flex flex-col items-center"
             >
-              <div className={`w-16 h-16 rounded-2xl mb-4 flex items-center justify-center transition-colors ${
-                uploadState === "dragging" ? "bg-indigo-500/20" : "bg-muted"
-              }`}>
+              <div className={`w-16 h-16 rounded-2xl mb-4 flex items-center justify-center transition-colors ${uploadState === "dragging" ? "bg-indigo-500/20" : "bg-muted"
+                }`}>
                 <Upload className={`w-7 h-7 transition-colors ${uploadState === "dragging" ? "text-indigo-400" : "text-muted-foreground"}`} />
               </div>
               <h3 className="text-lg font-semibold mb-2">
@@ -380,13 +378,11 @@ export default function UploadPage() {
                     key={i}
                     initial={{ opacity: 0.3 }}
                     animate={{ opacity: i <= currentStep ? 1 : 0.3 }}
-                    className={`flex items-center gap-3 p-2.5 rounded-xl transition-all ${
-                      isActive ? "bg-indigo-500/10 border border-indigo-500/20" : ""
-                    }`}
+                    className={`flex items-center gap-3 p-2.5 rounded-xl transition-all ${isActive ? "bg-indigo-500/10 border border-indigo-500/20" : ""
+                      }`}
                   >
-                    <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
-                      isDone ? "bg-green-500/15" : isActive ? "bg-indigo-500/15" : "bg-muted"
-                    }`}>
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${isDone ? "bg-green-500/15" : isActive ? "bg-indigo-500/15" : "bg-muted"
+                      }`}>
                       {isDone ? (
                         <CheckCircle className="w-3 h-3 text-green-400" />
                       ) : isActive ? (

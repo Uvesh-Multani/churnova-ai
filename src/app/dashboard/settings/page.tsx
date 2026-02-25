@@ -5,11 +5,11 @@ import {
   Settings, Bell, Shield, Database, Palette,
   Key, Mail, Zap, Check, ChevronRight
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import Badge from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
 import { useAppStore } from "@/lib/store";
@@ -23,18 +23,46 @@ const TABS = [
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("general");
-  const { anomalySensitivity, setAnomalySensitivity } = useAppStore();
-
-  const [notifications, setNotifications] = useState({
-    highRisk: true,
-    weeklyDigest: true,
-    anomalySpike: true,
-    revenueAlert: false,
-    newUser: false,
+  const { anomalySensitivity, setAnomalySensitivity, activeProjectId, projects } = useAppStore();
+  const [loading, setLoading] = useState(false);
+  const [settings, setSettings] = useState({
+    name: "",
+    slackWebhookUrl: "",
+    alertEmail: "",
+    alertsEnabled: true,
   });
 
-  const handleSave = () => {
-    toast.success("Settings saved successfully");
+  useEffect(() => {
+    if (activeProjectId) {
+      const activeProject = projects.find(p => p.id === activeProjectId);
+      if (activeProject) {
+        setSettings({
+          name: activeProject.name || "",
+          slackWebhookUrl: (activeProject as any).slackWebhookUrl || "",
+          alertEmail: (activeProject as any).alertEmail || "",
+          alertsEnabled: (activeProject as any).alertsEnabled !== false,
+        });
+      }
+    }
+  }, [activeProjectId, projects]);
+
+  const handleSave = async () => {
+    if (!activeProjectId) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/projects/${activeProjectId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings),
+      });
+
+      if (!res.ok) throw new Error("Failed to update settings");
+      toast.success("Settings saved successfully");
+    } catch (err: any) {
+      toast.error(err.message || "Error saving settings");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -55,11 +83,10 @@ export default function SettingsPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 ${
-                  activeTab === tab.id
-                    ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                }`}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 ${activeTab === tab.id
+                  ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
               >
                 <tab.icon className="w-4 h-4" />
                 {tab.label}
@@ -83,15 +110,24 @@ export default function SettingsPage() {
                   <div className="grid md:grid-cols-2 gap-4">
                     <div>
                       <label className="text-xs text-muted-foreground mb-1.5 block">Company Name</label>
-                      <Input defaultValue="Acme Corp" className="h-9 text-sm bg-muted/50" />
+                      <Input
+                        value={settings.name}
+                        onChange={(e) => setSettings({ ...settings, name: e.target.value })}
+                        className="h-9 text-sm bg-muted/50"
+                      />
                     </div>
                     <div>
                       <label className="text-xs text-muted-foreground mb-1.5 block">Industry</label>
                       <Input defaultValue="B2B SaaS" className="h-9 text-sm bg-muted/50" />
                     </div>
                     <div>
-                      <label className="text-xs text-muted-foreground mb-1.5 block">Admin Email</label>
-                      <Input defaultValue="admin@acmecorp.com" className="h-9 text-sm bg-muted/50" />
+                      <label className="text-xs text-muted-foreground mb-1.5 block">Alert Recipient Email</label>
+                      <Input
+                        value={settings.alertEmail}
+                        onChange={(e) => setSettings({ ...settings, alertEmail: e.target.value })}
+                        placeholder="alerts@acmecorp.com"
+                        className="h-9 text-sm bg-muted/50"
+                      />
                     </div>
                     <div>
                       <label className="text-xs text-muted-foreground mb-1.5 block">Timezone</label>
@@ -159,43 +195,76 @@ export default function SettingsPage() {
             {activeTab === "alerts" && (
               <div className="space-y-4">
                 <div className="glass-card rounded-2xl border border-white/8 p-5">
-                  <h3 className="font-semibold text-sm mb-4">Alert Configuration</h3>
-                  <div className="space-y-4">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h3 className="font-semibold text-sm">Smart Alerts</h3>
+                      <p className="text-xs text-muted-foreground">Master toggle for all outbound notifications</p>
+                    </div>
+                    <Switch
+                      checked={settings.alertsEnabled}
+                      onCheckedChange={(checked) => setSettings({ ...settings, alertsEnabled: checked })}
+                    />
+                  </div>
+
+                  <div className="space-y-6">
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-lg bg-indigo-500/10 flex items-center justify-center">
+                          <Database className="w-3.5 h-3.5 text-indigo-400" />
+                        </div>
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Slack Integration</h4>
+                      </div>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="https://hooks.slack.com/services/..."
+                          value={settings.slackWebhookUrl}
+                          onChange={(e) => setSettings({ ...settings, slackWebhookUrl: e.target.value })}
+                          className="h-10 text-sm bg-muted/50 flex-1"
+                        />
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        Create an Incoming Webhook in your Slack Workspace to receive real-time churn alerts.
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-lg bg-indigo-500/10 flex items-center justify-center">
+                          <Mail className="w-3.5 h-3.5 text-indigo-400" />
+                        </div>
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Email Notifications</h4>
+                      </div>
+                      <Input
+                        placeholder="alerts@yourcompany.com"
+                        value={settings.alertEmail}
+                        onChange={(e) => setSettings({ ...settings, alertEmail: e.target.value })}
+                        className="h-10 text-sm bg-muted/50 px-3"
+                      />
+                      <p className="text-[10px] text-muted-foreground">
+                        A digest will be sent when customers cross the risk threshold (Health {"<"} 30).
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="glass-card rounded-2xl border border-white/8 p-5">
+                  <h3 className="font-semibold text-sm mb-4">Advanced Configuration</h3>
+                  <div className="space-y-4 opacity-50 pointer-events-none">
                     {[
-                      { key: "highRisk" as const, label: "High Risk Alerts", desc: "Notify when a user exceeds risk score 70" },
-                      { key: "weeklyDigest" as const, label: "Weekly Digest Email", desc: "Send weekly risk summary every Monday" },
-                      { key: "anomalySpike" as const, label: "Anomaly Spikes", desc: "Alert on sudden anomaly score increases" },
-                      { key: "revenueAlert" as const, label: "Revenue Threshold Alert", desc: "Alert when revenue at risk exceeds $50K" },
-                      { key: "newUser" as const, label: "New User Onboarding Risk", desc: "Flag users with poor onboarding engagement" },
-                    ].map((alert) => (
-                      <div key={alert.key} className="flex items-center justify-between">
+                      { label: "Weekly Digest Email", desc: "Send weekly risk summary every Monday" },
+                      { label: "Anomaly Spikes", desc: "Alert on sudden anomaly score increases" },
+                      { label: "Revenue Threshold Alert", desc: "Alert when revenue at risk exceeds $50K" },
+                    ].map((alert, i) => (
+                      <div key={i} className="flex items-center justify-between">
                         <div>
                           <p className="text-sm font-medium">{alert.label}</p>
                           <p className="text-xs text-muted-foreground">{alert.desc}</p>
                         </div>
-                        <Switch
-                          checked={notifications[alert.key]}
-                          onCheckedChange={(checked) =>
-                            setNotifications(prev => ({ ...prev, [alert.key]: checked }))
-                          }
-                        />
+                        <Switch disabled />
                       </div>
                     ))}
                   </div>
-                </div>
-                
-                <div className="glass-card rounded-2xl border border-white/8 p-5">
-                  <h3 className="font-semibold text-sm mb-3">Alert Recipients</h3>
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="team@yourcompany.com"
-                      className="h-9 text-sm bg-muted/50 flex-1"
-                    />
-                    <Button size="sm" className="gradient-bg text-white border-0 h-9 text-xs px-4">
-                      <Mail className="w-3 h-3 mr-1.5" />
-                      Add
-                    </Button>
-                  </div>
+                  <p className="text-[10px] text-center mt-6 text-indigo-400 font-medium">Enterprise features: Contact support to enable advanced alerting.</p>
                 </div>
               </div>
             )}
@@ -210,7 +279,7 @@ export default function SettingsPage() {
                       v2.4.1 Active
                     </Badge>
                   </div>
-                  
+
                   <div className="space-y-5">
                     <div>
                       <div className="flex justify-between text-sm mb-2">
@@ -250,9 +319,8 @@ export default function SettingsPage() {
                         {["Daily", "Weekly", "Monthly"].map(opt => (
                           <button
                             key={opt}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                              opt === "Weekly" ? "gradient-bg text-white" : "bg-muted text-muted-foreground hover:bg-accent"
-                            }`}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${opt === "Weekly" ? "gradient-bg text-white" : "bg-muted text-muted-foreground hover:bg-accent"
+                              }`}
                           >
                             {opt}
                           </button>
@@ -328,8 +396,9 @@ export default function SettingsPage() {
               <Button
                 className="gradient-bg text-white border-0 h-9 px-6 text-sm"
                 onClick={handleSave}
+                disabled={loading || !activeProjectId}
               >
-                Save Settings
+                {loading ? "Saving..." : "Save Settings"}
               </Button>
             </div>
           </motion.div>

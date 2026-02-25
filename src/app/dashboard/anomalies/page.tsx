@@ -11,7 +11,7 @@ import {
 import { useState } from "react";
 import { useAppStore } from "@/lib/store";
 import { getAnomalyData } from "@/lib/data";
-import { Badge } from "@/components/ui/badge";
+import Badge from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
@@ -114,7 +114,7 @@ export default function AnomalyPage() {
         {/* Controls */}
         <div className="glass-card rounded-2xl border border-white/8 p-5 space-y-4">
           <h3 className="font-semibold text-sm">Detection Controls</h3>
-          
+
           <div>
             <div className="flex justify-between text-xs mb-2">
               <span className="text-muted-foreground">Anomaly Threshold</span>
@@ -140,11 +140,10 @@ export default function AnomalyPage() {
                 <button
                   key={level}
                   onClick={() => setFilter(level)}
-                  className={`px-2 py-1 rounded-lg text-xs font-medium transition-all ${
-                    filter === level
+                  className={`px-2 py-1 rounded-lg text-xs font-medium transition-all ${filter === level
                       ? "bg-indigo-500/15 text-indigo-400 border border-indigo-500/30"
                       : "bg-muted text-muted-foreground hover:bg-accent"
-                  }`}
+                    }`}
                 >
                   {level}
                 </button>

@@ -2,18 +2,19 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
   Activity, BarChart3, Bell, ChevronLeft, ChevronRight, LayoutDashboard,
   LineChart, Moon, Search, Settings, Shield, Sun, TrendingDown, Upload,
   Users, FileText, Zap, X, LogOut, User, ChevronDown
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAppStore } from "@/lib/store";
-import { Badge } from "@/components/ui/badge";
+import Badge from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { UserButton } from "@clerk/nextjs";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Overview", href: "/dashboard" },
@@ -34,66 +35,39 @@ const liveActivity = [
   { user: "USR-0711", action: "30-day inactivity threshold reached", time: "5m ago", type: "high" },
 ];
 
-function UserProfileDropdown() {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted transition-colors"
-      >
-        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold">
-          JD
-        </div>
-        <span className="text-sm font-medium hidden md:block">John Doe</span>
-        <ChevronDown className="w-3 h-3 text-muted-foreground hidden md:block" />
-      </button>
-      <AnimatePresence>
-        {open && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-            <motion.div
-              initial={{ opacity: 0, y: 8, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 8, scale: 0.95 }}
-              className="absolute right-0 top-full mt-2 w-52 bg-card border border-border rounded-xl shadow-2xl z-50 overflow-hidden"
-            >
-              <div className="p-3 border-b border-border">
-                <p className="text-sm font-semibold">John Doe</p>
-                <p className="text-xs text-muted-foreground">john@company.com</p>
-                <Badge className="mt-1.5 text-xs bg-indigo-500/10 text-indigo-400 border-indigo-500/20">Growth Plan</Badge>
-              </div>
-              <div className="p-1.5 space-y-0.5">
-                <button className="w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg hover:bg-muted transition-colors text-left">
-                  <User className="w-4 h-4 text-muted-foreground" />
-                  Profile
-                </button>
-                <button className="w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg hover:bg-muted transition-colors text-left">
-                  <Settings className="w-4 h-4 text-muted-foreground" />
-                  Settings
-                </button>
-                <div className="border-t border-border my-1" />
-                <Link href="/">
-                  <button className="w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg hover:bg-red-500/10 text-red-400 transition-colors text-left">
-                    <LogOut className="w-4 h-4" />
-                    Sign Out
-                  </button>
-                </Link>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { theme, setTheme } = useTheme();
   const pathname = usePathname();
-  const { sidebarCollapsed, setSidebarCollapsed } = useAppStore();
+  const { sidebarCollapsed, setSidebarCollapsed, projects, setProjects, activeProjectId, setActiveProjectId } = useAppStore();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const router = useRouter();
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const res = await fetch("/api/projects");
+        if (!res.ok) throw new Error("Unauthorized");
+        const data = await res.json();
+        setProjects(data);
+
+        // Redirect if no projects and not already onboarding
+        if (data.length === 0 && pathname !== "/onboarding") {
+          router.push("/onboarding");
+          return;
+        }
+
+        // Set default project if none selected
+        if (data.length > 0 && !activeProjectId) {
+          setActiveProjectId(data[0].id);
+        }
+      } catch (err) {
+        console.error("Dashboard Auth/Project Error:", err);
+      }
+    };
+    fetchProjects();
+  }, [pathname, activeProjectId, router, setProjects, setActiveProjectId]);
 
   return (
     <div className="min-h-screen bg-background text-foreground flex">
@@ -104,32 +78,46 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         transition={{ duration: 0.3, ease: "easeInOut" }}
         className="relative flex-shrink-0 h-screen sticky top-0 flex flex-col border-r border-border bg-sidebar-background overflow-hidden z-20"
       >
-        {/* Logo */}
-        <div className={`flex items-center h-16 px-4 border-b border-border ${sidebarCollapsed ? "justify-center" : "gap-2 justify-between"}`}>
-          <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 via-purple-500 to-blue-500 flex items-center justify-center flex-shrink-0 shadow-md group-hover:scale-110 transition-transform">
-              <Activity className="w-4 h-4 text-white" />
-            </div>
-            <AnimatePresence>
+        {/* Logo & Project Switcher */}
+        <div className={`px-4 py-4 border-b border-border flex flex-col gap-4 overflow-hidden`}>
+          <div className={`flex items-center ${sidebarCollapsed ? "justify-center" : "gap-2 justify-between"}`}>
+            <Link href="/" className="flex items-center gap-1 group">
+              <div className="w-8 h-8 rounded-lg bg-[var(--accent-primary)] flex items-center justify-center flex-shrink-0 shadow-[0_0_15px_rgba(245,197,66,0.2)] group-hover:scale-110 transition-transform">
+                <Activity className="w-4 h-4 text-[var(--bg-base)]" />
+              </div>
               {!sidebarCollapsed && (
-                <motion.span
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -10 }}
-                  className="font-bold text-sm whitespace-nowrap"
-                >
-                  Churnova <span className="gradient-text">AI</span>
-                </motion.span>
+                <span className="font-syne font-bold text-sm tracking-tight text-[var(--text-primary)]">
+                  CHURNOVA<span className="text-[var(--accent-primary)]">.</span>
+                </span>
               )}
-            </AnimatePresence>
-          </Link>
-          {!sidebarCollapsed && (
-            <button
-              onClick={() => setSidebarCollapsed(true)}
-              className="p-1.5 rounded-lg hover:bg-sidebar-accent transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4 text-muted-foreground" />
-            </button>
+            </Link>
+            {!sidebarCollapsed && (
+              <button
+                onClick={() => setSidebarCollapsed(true)}
+                className="p-1.5 rounded-lg hover:bg-sidebar-accent transition-colors"
+              >
+                <ChevronLeft className="w-3 h-3 text-muted-foreground" />
+              </button>
+            )}
+          </div>
+
+          {!sidebarCollapsed && projects.length > 0 && (
+            <div className="relative">
+              <select
+                value={activeProjectId || ""}
+                onChange={(e) => setActiveProjectId(e.target.value)}
+                className="w-full bg-muted/30 border border-border rounded-lg px-2 py-1.5 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary appearance-none cursor-pointer pr-8 hover:bg-muted/50 transition-colors"
+              >
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
+                <ChevronDown size={12} />
+              </div>
+            </div>
           )}
         </div>
 
@@ -141,11 +129,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <Link key={item.href} href={item.href}>
                 <motion.div
                   whileHover={{ x: 2 }}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 cursor-pointer group relative ${
-                    isActive
-                      ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
-                      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                  }`}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 cursor-pointer group relative ${isActive
+                    ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
+                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    }`}
                 >
                   {isActive && (
                     <motion.div
@@ -194,9 +181,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     transition={{ delay: i * 0.1 }}
                     className="flex items-start gap-2"
                   >
-                    <div className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${
-                      activity.type === "high" ? "bg-red-500" : activity.type === "medium" ? "bg-yellow-500" : "bg-green-500"
-                    }`} />
+                    <div className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${activity.type === "high" ? "bg-red-500" : activity.type === "medium" ? "bg-yellow-500" : "bg-green-500"
+                      }`} />
                     <div className="min-w-0">
                       <p className="text-xs text-muted-foreground truncate">{activity.user}</p>
                       <p className="text-xs truncate" style={{ fontSize: "10px" }}>{activity.action}</p>
@@ -277,9 +263,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <div className="divide-y divide-border max-h-80 overflow-y-auto">
                         {liveActivity.map((a, i) => (
                           <div key={i} className="flex items-start gap-3 p-3 hover:bg-muted/50 transition-colors">
-                            <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
-                              a.type === "high" ? "bg-red-500" : a.type === "medium" ? "bg-yellow-500" : "bg-green-500"
-                            }`} />
+                            <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${a.type === "high" ? "bg-red-500" : a.type === "medium" ? "bg-yellow-500" : "bg-green-500"
+                              }`} />
                             <div>
                               <p className="text-xs font-medium">{a.user}</p>
                               <p className="text-xs text-muted-foreground">{a.action}</p>
@@ -294,12 +279,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </AnimatePresence>
             </div>
 
-            <UserProfileDropdown />
+            <UserButton
+              appearance={{
+                elements: {
+                  userButtonAvatarBox: "w-8 h-8 border border-border"
+                }
+              }}
+            />
           </div>
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto relative">
           <motion.div
             key={pathname}
             initial={{ opacity: 0, y: 10 }}
@@ -308,6 +299,41 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           >
             {children}
           </motion.div>
+
+          {/* Subscription Gate Overlay */}
+          {projects.find(p => p.id === activeProjectId)?.plan === "FREE" && pathname !== "/dashboard/upload" && pathname !== "/dashboard/settings" && (
+            <div className="absolute inset-0 bg-background/60 backdrop-blur-[2px] z-10 flex items-center justify-center p-6">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="max-w-md w-full glass p-8 border border-[var(--accent-primary)] shadow-[0_0_30px_rgba(245,197,66,0.1)] text-center"
+              >
+                <div className="w-16 h-16 bg-[var(--accent-glow)] rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <Zap className="w-8 h-8 text-[var(--accent-primary)]" />
+                </div>
+                <h3 className="text-2xl font-syne font-bold mb-3">Upgrade to Pro</h3>
+                <p className="text-[var(--text-secondary)] text-sm mb-8 leading-relaxed">
+                  You're currently on the Free plan. To access advanced churn heartbeats,
+                  custom risk models, and full history, please upgrade your project.
+                </p>
+                <div className="flex flex-col gap-3">
+                  <Button
+                    className="w-full btn-primary h-12 text-sm font-bold"
+                    onClick={() => router.push("/pricing")}
+                  >
+                    View Pricing & Upgrade
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full text-xs text-muted-foreground"
+                    onClick={() => router.push("/dashboard/upload")}
+                  >
+                    Continue with Limited Access
+                  </Button>
+                </div>
+              </motion.div>
+            </div>
+          )}
         </main>
       </div>
     </div>

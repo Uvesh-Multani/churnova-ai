@@ -6,7 +6,7 @@ import {
   BarChart3, CheckCircle, Clock, Plus
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import Badge from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useAppStore } from "@/lib/store";
 import { getAnalytics } from "@/lib/data";

@@ -10,7 +10,7 @@ import {
 import { useState } from "react";
 import { useAppStore } from "@/lib/store";
 import { getEngagementTimeline, getFeatureUsage } from "@/lib/data";
-import { Badge } from "@/components/ui/badge";
+import Badge from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 const PERIODS = ["7d", "30d", "90d"] as const;
@@ -87,11 +87,10 @@ export default function EngagementPage() {
             <button
               key={p}
               onClick={() => setPeriod(p)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                period === p
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${period === p
                   ? "gradient-bg text-white shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
-              }`}
+                }`}
             >
               {p}
             </button>

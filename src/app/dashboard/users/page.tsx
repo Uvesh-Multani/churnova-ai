@@ -6,15 +6,15 @@ import {
   User, Clock, Activity, TrendingDown, Brain, ArrowUpRight, Mail,
   RefreshCw
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from "recharts";
 import { useAppStore } from "@/lib/store";
-import { UserRecord } from "@/lib/data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import Badge from "@/components/ui/badge";
 import { toast } from "sonner";
 
 function RiskBadge({ level }: { level: "Low" | "Medium" | "High" }) {
@@ -44,203 +44,43 @@ function RiskScoreBar({ score }: { score: number }) {
   );
 }
 
-// User Detail Slide-over Panel
-function UserSlideOver({ user, onClose }: { user: UserRecord; onClose: () => void }) {
-  const churnColor = user.churnProbability >= 70 ? "text-red-400" : user.churnProbability >= 40 ? "text-yellow-400" : "text-green-400";
-  
-  return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-end"
-        onClick={onClose}
-      >
-        <motion.div
-          initial={{ x: "100%" }}
-          animate={{ x: 0 }}
-          exit={{ x: "100%" }}
-          transition={{ type: "spring", damping: 30, stiffness: 300 }}
-          className="w-full max-w-xl h-full bg-card border-l border-border overflow-y-auto"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-border sticky top-0 bg-card z-10">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
-                {user.name.split(" ").map(n => n[0]).join("")}
-              </div>
-              <div>
-                <h2 className="font-semibold">{user.name}</h2>
-                <p className="text-xs text-muted-foreground">{user.email}</p>
-              </div>
-            </div>
-            <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted transition-colors">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="p-6 space-y-6">
-            {/* Risk Overview */}
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                { label: "Risk Score", value: user.riskScore, suffix: "", icon: AlertTriangle, color: user.riskLevel === "High" ? "text-red-400" : user.riskLevel === "Medium" ? "text-yellow-400" : "text-green-400" },
-                { label: "Churn Prob.", value: user.churnProbability, suffix: "%", icon: TrendingDown, color: churnColor },
-                { label: "Anomaly", value: Math.round(user.anomalyScore * 100), suffix: "%", icon: Brain, color: "text-purple-400" },
-              ].map((metric) => (
-                <div key={metric.label} className="glass-card rounded-xl p-3 border border-white/8 text-center">
-                  <metric.icon className={`w-4 h-4 mx-auto mb-1.5 ${metric.color}`} />
-                  <p className={`text-xl font-bold ${metric.color}`}>{metric.value}{metric.suffix}</p>
-                  <p className="text-xs text-muted-foreground">{metric.label}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* Engagement Chart */}
-            <div className="glass-card rounded-xl p-4 border border-white/8">
-              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                <Activity className="w-4 h-4 text-indigo-400" />
-                30-Day Engagement History
-              </h3>
-              <ResponsiveContainer width="100%" height={140}>
-                <AreaChart data={user.engagementHistory}>
-                  <defs>
-                    <linearGradient id="userEngGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                  <XAxis dataKey="date" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} interval={7} />
-                  <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} domain={[0, 100]} />
-                  <Tooltip
-                    contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "11px" }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="value"
-                    stroke="#6366f1"
-                    fill="url(#userEngGrad)"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Behavioral Breakdown */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold">Behavioral Breakdown</h3>
-              {[
-                { label: "Login Frequency", value: `${user.loginFrequency}/week`, icon: Clock, progress: Math.min(100, user.loginFrequency * 10) },
-                { label: "Avg Session Duration", value: `${user.avgSessionDuration} min`, icon: Activity, progress: Math.min(100, user.avgSessionDuration * 2) },
-                { label: "Feature Usage Rate", value: `${user.featureUsageRate}%`, icon: ArrowUpRight, progress: user.featureUsageRate },
-                { label: "Engagement Decline", value: `-${user.engagementDecline}%`, icon: TrendingDown, progress: user.engagementDecline, negative: true },
-              ].map((metric) => (
-                <div key={metric.label} className="flex items-center gap-3">
-                  <metric.icon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-muted-foreground">{metric.label}</span>
-                      <span className="text-xs font-medium">{metric.value}</span>
-                    </div>
-                    <div className="h-1 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-700"
-                        style={{
-                          width: `${metric.progress}%`,
-                          background: metric.negative ? "#ef4444" : "#6366f1",
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* AI Insight */}
-            <div className="glass-card rounded-xl p-4 border border-indigo-500/20 bg-indigo-500/5">
-              <div className="flex items-center gap-2 mb-2">
-                <Brain className="w-4 h-4 text-indigo-400" />
-                <h3 className="text-sm font-semibold text-indigo-400">AI Insight</h3>
-              </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">{user.aiInsight}</p>
-            </div>
-
-            {/* User Details */}
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { label: "User ID", value: user.id },
-                { label: "Company", value: user.company },
-                { label: "Plan", value: user.plan },
-                { label: "MRR", value: `$${user.mrr}/mo` },
-                { label: "Join Date", value: user.joinDate },
-                { label: "Last Active", value: user.lastActive },
-                { label: "Total Sessions", value: user.sessions },
-                { label: "Recency Score", value: user.recencyScore },
-              ].map((detail) => (
-                <div key={detail.label} className="glass-card rounded-lg p-3 border border-white/8">
-                  <p className="text-xs text-muted-foreground mb-0.5">{detail.label}</p>
-                  <p className="text-sm font-medium truncate">{detail.value}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-2 pt-2">
-              <Button
-                className="flex-1 gradient-bg text-white border-0 text-sm h-9"
-                onClick={() => {
-                  toast.success(`Email alert sent to CS team for ${user.name}`);
-                  onClose();
-                }}
-              >
-                <Mail className="w-4 h-4 mr-2" />
-                Alert CS Team
-              </Button>
-              <Button
-                variant="outline"
-                className="flex-1 text-sm h-9"
-                onClick={() => toast.info("Retention playbook triggered")}
-              >
-                <ArrowUpRight className="w-4 h-4 mr-2" />
-                Run Playbook
-              </Button>
-            </div>
-          </div>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
-  );
-}
 
 export default function UsersPage() {
-  const { users } = useAppStore();
+  const router = useRouter();
+  const { activeProjectId } = useAppStore();
+  const [liveUsers, setLiveUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [riskFilter, setRiskFilter] = useState<"All" | "High" | "Medium" | "Low">("All");
-  const [sortField, setSortField] = useState<keyof UserRecord>("riskScore");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const [selectedUser, setSelectedUser] = useState<UserRecord | null>(null);
+  const [sortField, setSortField] = useState<string>("healthScore");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc"); // Lowest score first
   const [page, setPage] = useState(1);
   const perPage = 15;
 
-  const filtered = useMemo(() => {
-    let result = users;
-    if (search) {
-      result = result.filter(u =>
-        u.name.toLowerCase().includes(search.toLowerCase()) ||
-        u.id.toLowerCase().includes(search.toLowerCase()) ||
-        u.email.toLowerCase().includes(search.toLowerCase()) ||
-        u.company.toLowerCase().includes(search.toLowerCase())
-      );
+  const fetchUsers = async () => {
+    if (!activeProjectId) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/customers?projectId=${activeProjectId}&risk=${riskFilter}&search=${search}`);
+      if (!res.ok) throw new Error("Failed to fetch customers");
+      const data = await res.json();
+      setLiveUsers(data);
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
     }
-    if (riskFilter !== "All") {
-      result = result.filter(u => u.riskLevel === riskFilter);
-    }
-    result = [...result].sort((a, b) => {
-      const aVal = a[sortField] as number | string;
-      const bVal = b[sortField] as number | string;
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, [activeProjectId, riskFilter, search]);
+
+  const sortedUsers = useMemo(() => {
+    return [...liveUsers].sort((a, b) => {
+      const aVal = a[sortField];
+      const bVal = b[sortField];
+
       if (typeof aVal === "number" && typeof bVal === "number") {
         return sortDir === "desc" ? bVal - aVal : aVal - bVal;
       }
@@ -248,27 +88,26 @@ export default function UsersPage() {
         ? String(bVal).localeCompare(String(aVal))
         : String(aVal).localeCompare(String(bVal));
     });
-    return result;
-  }, [users, search, riskFilter, sortField, sortDir]);
+  }, [liveUsers, sortField, sortDir]);
 
-  const paginated = filtered.slice((page - 1) * perPage, page * perPage);
-  const totalPages = Math.ceil(filtered.length / perPage);
+  const paginated = sortedUsers.slice((page - 1) * perPage, page * perPage);
+  const totalPages = Math.ceil(sortedUsers.length / perPage);
 
-  const handleSort = (field: keyof UserRecord) => {
+  const handleSort = (field: string) => {
     if (field === sortField) setSortDir(d => d === "desc" ? "asc" : "desc");
-    else { setSortField(field); setSortDir("desc"); }
+    else { setSortField(field); setSortDir("asc"); }
   };
 
-  const SortIcon = ({ field }: { field: keyof UserRecord }) => {
+  const SortIcon = ({ field }: { field: string }) => {
     if (field !== sortField) return <ChevronDown className="w-3 h-3 opacity-30" />;
     return sortDir === "desc" ? <ChevronDown className="w-3 h-3 text-indigo-400" /> : <ChevronUp className="w-3 h-3 text-indigo-400" />;
   };
 
   const handleExport = () => {
     const csvContent = [
-      ["ID", "Name", "Risk Score", "Risk Level", "Anomaly Score", "Decline %", "Last Active", "MRR"].join(","),
-      ...filtered.filter(u => u.riskLevel === "High").map(u =>
-        [u.id, u.name, u.riskScore, u.riskLevel, u.anomalyScore, u.engagementDecline, u.lastActive, u.mrr].join(",")
+      ["ID", "Name", "Risk Score", "Risk Level", "Last Active"].join(","),
+      ...sortedUsers.filter(u => u.riskLevel === "High").map(u =>
+        [u.externalId, u.name, u.healthScore, u.riskLevel, u.lastSeen].join(",")
       )
     ].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv" });
@@ -281,14 +120,11 @@ export default function UsersPage() {
   };
 
   const cols = [
-    { label: "User", field: "name" as keyof UserRecord, width: "w-48" },
-    { label: "Risk Score", field: "riskScore" as keyof UserRecord, width: "w-36" },
-    { label: "Risk Level", field: "riskLevel" as keyof UserRecord, width: "w-28" },
-    { label: "Anomaly Score", field: "anomalyScore" as keyof UserRecord, width: "w-32" },
-    { label: "Decline %", field: "engagementDecline" as keyof UserRecord, width: "w-28" },
-    { label: "Recency", field: "recencyScore" as keyof UserRecord, width: "w-24" },
-    { label: "Last Active", field: "lastActive" as keyof UserRecord, width: "w-32" },
-    { label: "Insight", field: "aiInsight" as keyof UserRecord, width: "flex-1" },
+    { label: "User", field: "name", width: "w-48" },
+    { label: "Health Score", field: "healthScore", width: "w-36" },
+    { label: "Risk Level", field: "riskLevel", width: "w-28" },
+    { label: "Last Active", field: "lastSeen", width: "w-32" },
+    { label: "Events", field: "events", width: "w-24" },
   ];
 
   return (
@@ -298,7 +134,7 @@ export default function UsersPage() {
         <div>
           <h1 className="text-2xl font-bold">Users</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {filtered.length} users · {users.filter(u => u.riskLevel === "High").length} high risk
+            {loading ? "Syncing data..." : `${sortedUsers.length} users tracked`}
           </p>
         </div>
         <Button
@@ -330,15 +166,28 @@ export default function UsersPage() {
 
         <div className="flex items-center gap-2">
           <Filter className="w-3.5 h-3.5 text-muted-foreground" />
+          <select
+            className="bg-muted border border-white/5 rounded-lg text-xs px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-500/50"
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val === "risk") setRiskFilter("High");
+              else if (val === "healthy") setRiskFilter("Low");
+              else setRiskFilter("All");
+            }}
+          >
+            <option value="all">All Segments</option>
+            <option value="risk">High Risk Segment</option>
+            <option value="power">Power Users</option>
+            <option value="inactive">Inactive {'>'} 30d</option>
+          </select>
           {(["All", "High", "Medium", "Low"] as const).map((level) => (
             <button
               key={level}
               onClick={() => { setRiskFilter(level); setPage(1); }}
-              className={`px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200 ${
-                riskFilter === level
-                  ? level === "High" ? "badge-high" : level === "Medium" ? "badge-medium" : level === "Low" ? "badge-low" : "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
-                  : "bg-muted text-muted-foreground hover:bg-accent"
-              }`}
+              className={`px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200 ${riskFilter === level
+                ? level === "High" ? "badge-high" : level === "Medium" ? "badge-medium" : level === "Low" ? "badge-low" : "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
+                : "bg-muted text-muted-foreground hover:bg-accent"
+                }`}
             >
               {level}
             </button>
@@ -374,50 +223,37 @@ export default function UsersPage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.03 }}
                   className="border-b border-border/50 hover:bg-muted/30 cursor-pointer transition-colors duration-150 group"
-                  onClick={() => setSelectedUser(user)}
+                  onClick={() => router.push(`/dashboard/users/${user.id}`)}
                 >
                   {/* User */}
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center text-xs font-bold flex-shrink-0">
-                        {user.name.split(" ").map(n => n[0]).join("")}
+                        {(user.name || user.externalId)[0]}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-medium truncate">{user.name}</p>
-                        <p className="text-xs text-muted-foreground truncate">{user.id}</p>
+                        <p className="text-xs font-medium truncate">{user.name || "Unnamed"}</p>
+                        <p className="text-xs text-muted-foreground truncate">{user.externalId}</p>
                       </div>
                     </div>
                   </td>
                   {/* Risk Score */}
                   <td className="px-4 py-3 w-36">
-                    <RiskScoreBar score={user.riskScore} />
+                    <RiskScoreBar score={user.healthScore} />
                   </td>
                   {/* Risk Level */}
                   <td className="px-4 py-3">
                     <RiskBadge level={user.riskLevel} />
                   </td>
-                  {/* Anomaly Score */}
-                  <td className="px-4 py-3">
-                    <span className="text-xs font-mono">{user.anomalyScore}</span>
-                  </td>
-                  {/* Decline */}
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1 text-xs">
-                      <TrendingDown className="w-3 h-3 text-red-400" />
-                      <span className="text-red-400 font-medium">-{user.engagementDecline}%</span>
-                    </div>
-                  </td>
-                  {/* Recency */}
-                  <td className="px-4 py-3">
-                    <span className="text-xs font-mono">{user.recencyScore}</span>
-                  </td>
                   {/* Last Active */}
                   <td className="px-4 py-3">
-                    <span className="text-xs text-muted-foreground">{user.lastActive}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {user.lastSeen ? new Date(user.lastSeen).toLocaleDateString() : 'Never'}
+                    </span>
                   </td>
-                  {/* Insight */}
-                  <td className="px-4 py-3 max-w-xs">
-                    <p className="text-xs text-muted-foreground truncate">{user.aiInsight}</p>
+                  {/* Events */}
+                  <td className="px-4 py-3">
+                    <span className="text-xs font-mono">{user._count?.events || 0}</span>
                   </td>
                 </motion.tr>
               ))}
@@ -428,7 +264,7 @@ export default function UsersPage() {
         {/* Pagination */}
         <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-muted/10">
           <p className="text-xs text-muted-foreground">
-            Showing {(page - 1) * perPage + 1}–{Math.min(page * perPage, filtered.length)} of {filtered.length}
+            Showing {(page - 1) * perPage + 1}–{Math.min(page * perPage, sortedUsers.length)} of {sortedUsers.length}
           </p>
           <div className="flex items-center gap-1">
             <Button
@@ -447,9 +283,8 @@ export default function UsersPage() {
                 <button
                   key={p}
                   onClick={() => setPage(p)}
-                  className={`w-7 h-7 text-xs rounded-lg transition-colors ${
-                    p === page ? "gradient-bg text-white" : "hover:bg-muted text-muted-foreground"
-                  }`}
+                  className={`w-7 h-7 text-xs rounded-lg transition-colors ${p === page ? "gradient-bg text-white" : "hover:bg-muted text-muted-foreground"
+                    }`}
                 >
                   {p}
                 </button>
@@ -467,11 +302,6 @@ export default function UsersPage() {
           </div>
         </div>
       </div>
-
-      {/* Slide-over */}
-      {selectedUser && (
-        <UserSlideOver user={selectedUser} onClose={() => setSelectedUser(null)} />
-      )}
     </div>
   );
 }

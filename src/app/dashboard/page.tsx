@@ -12,11 +12,9 @@ import {
 } from "recharts";
 import { useEffect, useState } from "react";
 import { useAppStore } from "@/lib/store";
-import {
-  getAnalytics, getEngagementTimeline, getFeatureUsage, getAnomalyData
-} from "@/lib/data";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import Badge from "@/components/ui/badge";
+
 
 // Animated KPI counter
 function AnimatedNumber({ target, prefix = "", suffix = "", decimals = 0 }: {
@@ -40,6 +38,8 @@ function AnimatedNumber({ target, prefix = "", suffix = "", decimals = 0 }: {
   return <span>{prefix}{display}{suffix}</span>;
 }
 
+import { useRouter } from "next/navigation";
+
 // KPI Card
 function KPICard({
   title, value, prefix = "", suffix = "", change, changeType, icon: Icon, color, delay = 0
@@ -59,7 +59,7 @@ function KPICard({
       {/* Background gradient */}
       <div className={`absolute -right-4 -top-4 w-24 h-24 rounded-full blur-2xl opacity-10 group-hover:opacity-20 transition-opacity`}
         style={{ background: color }} />
-      
+
       <div className="flex items-start justify-between mb-4 relative">
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center`}
           style={{ background: `${color}20` }}>
@@ -86,10 +86,14 @@ function KPICard({
 function ActivityHeatmap() {
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const hours = Array.from({ length: 12 }, (_, i) => `${i * 2}:00`);
-  
-  const data = days.map(day => 
-    hours.map(() => Math.floor(Math.random() * 100))
-  );
+
+  const [data, setData] = useState<number[][]>([]);
+
+  useEffect(() => {
+    setData(days.map(() =>
+      hours.map(() => Math.floor(Math.random() * 100))
+    ));
+  }, []);
 
   const getColor = (value: number) => {
     if (value < 20) return "bg-indigo-500/10";
@@ -98,6 +102,9 @@ function ActivityHeatmap() {
     if (value < 80) return "bg-indigo-500/65";
     return "bg-indigo-500/85";
   };
+
+  if (data.length === 0) return <div className="h-40 animate-pulse bg-white/5 rounded-xl" />;
+
 
   return (
     <div className="overflow-x-auto">
@@ -127,72 +134,113 @@ function ActivityHeatmap() {
   );
 }
 
-const RISK_COLORS = ["#ef4444", "#eab308", "#22c55e"];
+const RISK_COLORS = ["#EF4444", "#F5C542", "#22C55E"]; // Red, Yellow (Accent), Green
 
 export default function OverviewPage() {
-  const { users } = useAppStore();
-  const analytics = getAnalytics(users);
-  const engagementData = getEngagementTimeline();
-  const featureData = getFeatureUsage();
-  const anomalyData = getAnomalyData(users);
+  const router = useRouter();
+  const { activeProjectId, projects } = useAppStore();
+  const activeProject = projects.find(p => p.id === activeProjectId);
 
+  const [stats, setStats] = useState<any>(null);
+  const [charts, setCharts] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchData = async () => {
+    if (!activeProjectId) return;
+
+    try {
+      const res = await fetch(`/api/analytics/summary?projectId=${activeProjectId}`);
+      if (!res.ok) throw new Error("Failed to fetch summary");
+      const data = await res.json();
+      setStats(data);
+      setCharts(data.charts || []);
+      // Customers could be fetched separately if needed, but for now we'll keep it simple
+      setCustomers([]);
+    } catch (error) {
+      console.error("Dashboard fetch error:", error);
+    } finally {
+      setLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [activeProjectId]);
+
   const handleRefresh = () => {
     setIsRefreshing(true);
-    setTimeout(() => setIsRefreshing(false), 1500);
+    fetchData();
   };
+
+  if (loading || !stats) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-4">
+          <RefreshCw className="w-8 h-8 animate-spin text-indigo-500" />
+          <p className="text-sm text-muted-foreground">Loading intelligence...</p>
+        </div>
+      </div>
+    );
+  }
 
   const kpis = [
     {
       title: "Total Users",
-      value: analytics.totalUsers,
-      change: "+12.5%",
+      value: stats.totalUsers || 0,
+      change: "+0%",
       changeType: "up" as const,
       icon: Users,
-      color: "#6366f1",
+      color: "var(--accent-primary)",
     },
     {
       title: "Active Users (7d)",
-      value: analytics.activeUsers,
-      change: "+8.2%",
+      value: stats.activeUsers || 0,
+      change: "+0%",
       changeType: "up" as const,
       icon: Activity,
-      color: "#22c55e",
+      color: "var(--accent-alt)",
     },
     {
       title: "High Risk Users",
-      value: analytics.highRiskUsers,
-      change: "+23.1%",
-      changeType: "down" as const,
+      value: stats.highRiskUsers || 0,
+      change: "0",
+      changeType: "neutral" as const,
       icon: Shield,
-      color: "#ef4444",
-    },
-    {
-      title: "Revenue at Risk",
-      value: analytics.revenueAtRisk,
-      prefix: "$",
-      change: "-5.4%",
-      changeType: "up" as const,
-      icon: DollarSign,
-      color: "#eab308",
+      color: "var(--destructive)",
     },
     {
       title: "Health Score",
-      value: analytics.healthScore,
+      value: stats.healthScore || 0,
       suffix: "%",
-      change: "+2.1%",
-      changeType: "up" as const,
+      change: "+0%",
+      changeType: "neutral" as const,
       icon: BarChart3,
-      color: "#a855f7",
+      color: "var(--accent-alt)",
     },
   ];
+
+  const featureData = [
+    { feature: "Dashboard", usage: 94, prev: 96 },
+    { feature: "Analytics", usage: 78, prev: 82 },
+    { feature: "Reports", usage: 65, prev: 71 },
+    { feature: "Integrations", usage: 52, prev: 60 },
+  ];
+
+  const anomalyData = customers.map(c => ({
+    x: Math.random() * 10,
+    y: Math.random() * 60,
+    risk: c.riskLevel,
+  }));
 
   return (
     <div className="p-6 space-y-6 max-w-full">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Overview</h1>
+          <h1 className="text-2xl font-bold">{activeProject?.name || "Overview"}</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             Real-time churn intelligence dashboard
           </p>
@@ -239,15 +287,11 @@ export default function OverviewPage() {
             </Badge>
           </div>
           <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={engagementData}>
+            <AreaChart data={charts}>
               <defs>
                 <linearGradient id="engGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="sessGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#a855f7" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
+                  <stop offset="5%" stopColor="var(--accent-primary)" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="var(--accent-primary)" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
@@ -274,11 +318,11 @@ export default function OverviewPage() {
               <Area
                 type="monotone"
                 dataKey="engagement"
-                stroke="#6366f1"
+                stroke="var(--accent-primary)"
                 fill="url(#engGrad)"
                 strokeWidth={2}
                 dot={false}
-                name="Engagement %"
+                name="Avg Health Score"
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -293,7 +337,7 @@ export default function OverviewPage() {
           <ResponsiveContainer width="100%" height={160}>
             <PieChart>
               <Pie
-                data={analytics.riskDistribution}
+                data={stats.riskDistribution}
                 cx="50%"
                 cy="50%"
                 innerRadius={45}
@@ -301,7 +345,7 @@ export default function OverviewPage() {
                 paddingAngle={3}
                 dataKey="value"
               >
-                {analytics.riskDistribution.map((entry, index) => (
+                {stats.riskDistribution.map((entry: any, index: number) => (
                   <Cell key={index} fill={RISK_COLORS[index]} />
                 ))}
               </Pie>
@@ -316,7 +360,7 @@ export default function OverviewPage() {
             </PieChart>
           </ResponsiveContainer>
           <div className="space-y-2 mt-2">
-            {analytics.riskDistribution.map((item, i) => (
+            {stats.riskDistribution.map((item: any, i: number) => (
               <div key={item.name} className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
                   <div className="w-2.5 h-2.5 rounded-full" style={{ background: RISK_COLORS[i] }} />
@@ -329,129 +373,8 @@ export default function OverviewPage() {
         </div>
       </div>
 
-      {/* Charts Row 2 */}
-      <div className="grid lg:grid-cols-2 gap-4">
-        {/* Feature Usage Bar Chart */}
-        <div className="glass-card rounded-2xl p-5 border border-white/8">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="font-semibold text-sm">Feature Usage Comparison</h3>
-              <p className="text-xs text-muted-foreground">Current vs previous month</p>
-            </div>
-          </div>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={featureData} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
-              <YAxis
-                type="category"
-                dataKey="feature"
-                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                tickLine={false}
-                axisLine={false}
-                width={72}
-              />
-              <Tooltip
-                contentStyle={{
-                  background: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "12px",
-                  fontSize: "12px",
-                }}
-              />
-              <Bar dataKey="prev" fill="rgba(99,102,241,0.25)" radius={[0, 4, 4, 0]} name="Last Month" />
-              <Bar dataKey="usage" fill="#6366f1" radius={[0, 4, 4, 0]} name="This Month" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Anomaly Scatter Plot */}
-        <div className="glass-card rounded-2xl p-5 border border-white/8">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="font-semibold text-sm">Anomaly Detection Scatter</h3>
-              <p className="text-xs text-muted-foreground">Login frequency vs session duration</p>
-            </div>
-            <div className="flex items-center gap-2 text-xs">
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full bg-red-500" />
-                <span className="text-muted-foreground">High</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full bg-yellow-500" />
-                <span className="text-muted-foreground">Med</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full bg-green-500" />
-                <span className="text-muted-foreground">Low</span>
-              </div>
-            </div>
-          </div>
-          <ResponsiveContainer width="100%" height={220}>
-            <ScatterChart>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-              <XAxis
-                type="number"
-                dataKey="x"
-                name="Login/Week"
-                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                tickLine={false}
-                axisLine={false}
-                label={{ value: "Logins/Week", position: "bottom", fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-              />
-              <YAxis
-                type="number"
-                dataKey="y"
-                name="Session (min)"
-                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                tickLine={false}
-                axisLine={false}
-              />
-              <Tooltip
-                contentStyle={{
-                  background: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "12px",
-                  fontSize: "11px",
-                }}
-                cursor={{ strokeDasharray: "3 3" }}
-              />
-              {["High", "Medium", "Low"].map((risk, i) => (
-                <Scatter
-                  key={risk}
-                  name={risk}
-                  data={anomalyData.filter(d => d.risk === risk)}
-                  fill={RISK_COLORS[i]}
-                  opacity={0.7}
-                />
-              ))}
-            </ScatterChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Activity Heatmap */}
-      <div className="glass-card rounded-2xl p-5 border border-white/8">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="font-semibold text-sm">Activity Intensity Heatmap</h3>
-            <p className="text-xs text-muted-foreground">User activity by day and hour</p>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span>Low</span>
-            <div className="flex gap-0.5">
-              {[10, 25, 45, 65, 85].map(o => (
-                <div key={o} className="w-3 h-3 rounded-sm" style={{ background: `rgba(99,102,241,${o/100})` }} />
-              ))}
-            </div>
-            <span>High</span>
-          </div>
-        </div>
-        <ActivityHeatmap />
-      </div>
-
       {/* High Risk Alert Banner */}
-      {analytics.highRiskUsers > 0 && (
+      {stats.highRiskUsers > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -463,15 +386,19 @@ export default function OverviewPage() {
             </div>
             <div>
               <p className="text-sm font-semibold text-red-400">
-                {analytics.highRiskUsers} high-risk users require immediate attention
+                {stats.highRiskUsers} high-risk users require immediate attention
               </p>
               <p className="text-xs text-muted-foreground">
-                Estimated revenue at risk: ${analytics.revenueAtRisk.toLocaleString()}/month
+                Critical health scores detected in your active project.
               </p>
             </div>
           </div>
-          <Button size="sm" className="bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500/25 text-xs">
-            View Users
+          <Button
+            size="sm"
+            onClick={() => router.push("/dashboard/risk")}
+            className="bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500/25 text-xs"
+          >
+            Review Risk
           </Button>
         </motion.div>
       )}

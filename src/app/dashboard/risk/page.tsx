@@ -47,7 +47,7 @@ export default function RiskAnalysisPage() {
   ];
 
   // Revenue at risk by plan
-  const revenueData = ["Starter", "Growth", "Professional", "Enterprise"].map(plan => {
+  const revenueData = ["Free", "Basic", "Pro"].map(plan => {
     const planUsers = users.filter(u => u.plan === plan && u.riskLevel === "High");
     const revenue = planUsers.reduce((s, u) => s + u.mrr, 0);
     return { plan, revenue, count: planUsers.length };

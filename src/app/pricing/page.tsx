@@ -71,54 +71,54 @@ export default function PricingPage() {
 
     const pricingData = [
         {
-            tier: "Starter",
+            tier: "Free",
             monthlyPrice: "$0",
             annualPrice: "$0",
             priceId: "free",
-            description: "For small teams just getting started with retention.",
+            description: "Perfect for testing Churnova with limited data.",
             features: [
-                "Up to 1,000 monthly tracked users",
-                "Basic behavioral signals",
-                "Standard dashboards",
+                "Up to 10 customers",
+                "Basic anomaly detection",
+                "Standard dashboard access",
                 "Email support",
-                "Single team member"
+                "1 Project"
             ],
-            ctaText: "Get Started Free",
+            ctaText: "Start for Free",
             ctaHref: "/dashboard"
         },
         {
-            tier: "Pro",
-            monthlyPrice: "$124",
-            annualPrice: "$99",
-            priceId: PLANS.PRO.productId,
-            description: "Advanced tools for growing SaaS companies.",
+            tier: "Basic",
+            monthlyPrice: "$4.99",
+            annualPrice: "$3.99",
+            priceId: PLANS.BASIC.productId,
+            description: "Essential insights for growing projects.",
             features: [
-                "Up to 50,000 monthly tracked users",
-                "Advanced retention AI",
-                "Custom health scoring",
-                "Priority 24/7 support",
-                "CRM integrations",
-                "Up to 10 team members"
+                "Up to 100 customers",
+                "Advanced AI risk models",
+                "Slack & Email alerts",
+                "Retention health score",
+                "Standard data exports",
+                "Priority email support"
             ],
-            ctaText: "Try Pro Free",
+            ctaText: "Get Basic",
             ctaHref: "#",
             isPopular: true
         },
         {
-            tier: "Enterprise",
-            monthlyPrice: "Custom",
-            annualPrice: "Custom",
-            priceId: PLANS.ENTERPRISE.productId,
-            description: "Scale-ready solutions for large organizations.",
+            tier: "Pro",
+            monthlyPrice: "$12.99",
+            annualPrice: "$9.99",
+            priceId: PLANS.PRO.productId,
+            description: "Powerful churn prevention for scale.",
             features: [
-                "Unlimited tracked users",
-                "Dedicated account manager",
+                "Up to 1,000 customers",
                 "Custom ML model training",
-                "SLA guarantees",
-                "On-premise deployment",
-                "Unlimited team members"
+                "Real-time anomaly heartbeats",
+                "Full behavioral history",
+                "Priority 24/7 support",
+                "API Access"
             ],
-            ctaText: "Contact Sales",
+            ctaText: "Upgrade to Pro",
             ctaHref: "#"
         }
     ];

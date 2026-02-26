@@ -40,14 +40,18 @@ export async function POST(req: Request) {
             case "subscription.active":
             case "subscription.renewed":
             case "subscription.updated":
-                if (data.metadata?.projectId) {
-                    await (prisma.project as any).update({
-                        where: { id: data.metadata.projectId },
+            case "payment.succeeded":
+                const metadata = data.metadata || {};
+                const projectId = metadata.projectId;
+
+                if (projectId) {
+                    await prisma.project.update({
+                        where: { id: projectId },
                         data: {
                             dodoCustomerId: data.customer?.customer_id || data.customer_id,
-                            dodoSubscriptionId: subscriptionId,
+                            dodoSubscriptionId: subscriptionId || data.subscription_id,
                             subscriptionStatus: internalStatus,
-                            plan: internalStatus === "active" ? "PRO" : "FREE",
+                            plan: (internalStatus === "active" || eventType === "payment.succeeded") ? "PRO" : "FREE",
                         },
                     });
                 }
@@ -57,7 +61,7 @@ export async function POST(req: Request) {
             case "subscription.expired":
             case "subscription.failed":
                 if (subscriptionId) {
-                    await (prisma.project as any).updateMany({
+                    await prisma.project.updateMany({
                         where: { dodoSubscriptionId: subscriptionId },
                         data: {
                             subscriptionStatus: internalStatus,

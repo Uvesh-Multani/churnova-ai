@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import {
   Settings, Bell, Shield, Database, Palette,
-  Key, Mail, Zap, Check, ChevronRight
+  Key, Mail, Zap, Check, ChevronRight, Activity, RefreshCcw
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -25,12 +25,17 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("general");
   const { anomalySensitivity, setAnomalySensitivity, activeProjectId, projects } = useAppStore();
   const [loading, setLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [settings, setSettings] = useState({
     name: "",
     slackWebhookUrl: "",
     alertEmail: "",
     alertsEnabled: true,
   });
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (activeProjectId) {
@@ -64,6 +69,35 @@ export default function SettingsPage() {
       setLoading(false);
     }
   };
+
+  const handleManagePlan = async () => {
+    if (!activeProjectId) return;
+    const activeProject = projects.find(p => p.id === activeProjectId);
+    if (activeProject?.plan === "FREE") {
+      window.location.href = "/pricing";
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch("/api/dodo/portal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: activeProjectId }),
+      });
+
+      const { url, error } = await res.json();
+      if (error) throw new Error(error);
+      if (url) window.location.href = url;
+    } catch (err: any) {
+      toast.error(err.message || "Error opening billing portal");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const activeProject = projects.find(p => p.id === activeProjectId);
+  const currentPlan = activeProject?.plan || "FREE";
 
   return (
     <div className="p-6 space-y-6 max-w-4xl">
@@ -140,16 +174,44 @@ export default function SettingsPage() {
                   <h3 className="font-semibold text-sm mb-4">Plan & Billing</h3>
                   <div className="flex items-center justify-between p-4 bg-indigo-500/5 border border-indigo-500/20 rounded-xl">
                     <div>
-                      <p className="font-semibold text-sm">Growth Plan</p>
-                      <p className="text-xs text-muted-foreground">$299/month · Up to 10,000 users</p>
+                      <p className="font-semibold text-sm">{currentPlan === "FREE" ? "Free Plan" : currentPlan === "BASIC" ? "Basic Plan" : "Pro Plan"}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {currentPlan === "FREE" ? "Free · Up to 10 customers" : currentPlan === "BASIC" ? "$4.99/month · Up to 100 customers" : "$12.99/month · Up to 1,000 customers"}
+                      </p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <Badge className="text-xs bg-green-500/10 text-green-400 border-green-500/20">
-                        <Check className="w-3 h-3 mr-1" /> Active
+                      <Badge className={`text-xs ${currentPlan === "FREE" ? "bg-muted text-muted-foreground" : "bg-green-500/10 text-green-400 border-green-500/20"}`}>
+                        {currentPlan === "FREE" ? "Free" : <><Check className="w-3 h-3 mr-1" /> Active</>}
                       </Badge>
-                      <Button size="sm" variant="outline" className="text-xs h-8">
-                        Manage Plan
-                      </Button>
+                      <div className="pt-4 flex items-center gap-4">
+                        <button
+                          onClick={handleManagePlan}
+                          className="btn-primary px-6 py-2 rounded-xl text-sm font-semibold"
+                          disabled={loading}
+                        >
+                          {currentPlan === "FREE" ? "Upgrade Now" : "Manage Subscription"}
+                        </button>
+                        <button
+                          onClick={async () => {
+                            const toastId = toast.loading("Syncing your subscription...");
+                            try {
+                              const res = await fetch("/api/dodo/sync");
+                              if (!res.ok) throw new Error("Sync failed");
+                              const data = await res.json();
+                              toast.success("Subscription status updated!");
+                              window.location.reload();
+                            } catch (err) {
+                              toast.error("Failed to sync status.");
+                            } finally {
+                              toast.dismiss(toastId);
+                            }
+                          }}
+                          className="px-6 py-2 rounded-xl text-sm font-semibold border border-border hover:bg-muted transition-colors flex items-center gap-2"
+                        >
+                          <Activity className="w-4 h-4" />
+                          Sync Status
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -396,7 +458,7 @@ export default function SettingsPage() {
               <Button
                 className="gradient-bg text-white border-0 h-9 px-6 text-sm"
                 onClick={handleSave}
-                disabled={loading || !activeProjectId}
+                disabled={!mounted || loading || !activeProjectId}
               >
                 {loading ? "Saving..." : "Save Settings"}
               </Button>

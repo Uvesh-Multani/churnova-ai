@@ -2,15 +2,16 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
   Activity, BarChart3, Bell, ChevronLeft, ChevronRight, LayoutDashboard,
   LineChart, Moon, Search, Settings, Shield, Sun, TrendingDown, Upload,
-  Users, FileText, Zap, X, LogOut, User, ChevronDown
+  Users, FileText, Zap, X, LogOut, User, ChevronDown, RefreshCcw
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAppStore } from "@/lib/store";
+import { toast } from "sonner";
 import Badge from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,10 +40,17 @@ const liveActivity = [
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { theme, setTheme } = useTheme();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { sidebarCollapsed, setSidebarCollapsed, projects, setProjects, activeProjectId, setActiveProjectId } = useAppStore();
+  const activeProject = projects.find(p => p.id === activeProjectId);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -66,8 +74,53 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         console.error("Dashboard Auth/Project Error:", err);
       }
     };
+
     fetchProjects();
   }, [pathname, activeProjectId, router, setProjects, setActiveProjectId]);
+
+  // Session verification polling
+  useEffect(() => {
+    const sessionId = searchParams.get("session_id");
+    if (!sessionId) return;
+
+    let toastId: string | number | undefined;
+
+    const interval = setInterval(async () => {
+      try {
+        if (!toastId) {
+          toastId = toast.loading("Verifying your payment status...");
+        }
+
+        const verifyRes = await fetch(`/api/dodo/verify?session_id=${sessionId}`);
+        if (!verifyRes.ok) return;
+        const verifyData = await verifyRes.json();
+
+        if (verifyData.plan === "PRO") {
+          toast.success("Payment verified! Welcome to PRO.", { id: toastId });
+          const res = await fetch("/api/projects");
+          if (res.ok) {
+            const data = await res.json();
+            setProjects(data);
+          }
+          clearInterval(interval);
+          // Remove session_id from URL
+          const url = new URL(window.location.href);
+          url.searchParams.delete("session_id");
+          router.replace(url.pathname + url.search);
+        } else if (verifyData.status === "failed") {
+          toast.error("Payment failed. Please try again.", { id: toastId });
+          clearInterval(interval);
+        }
+      } catch (err) {
+        console.error("Polling error:", err);
+      }
+    }, 2000);
+
+    return () => {
+      clearInterval(interval);
+      if (toastId) toast.dismiss(toastId);
+    };
+  }, [searchParams, router, setProjects]);
 
   return (
     <div className="min-h-screen bg-background text-foreground flex">
@@ -223,16 +276,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
 
           <div className="flex items-center gap-2">
-            <Badge className="hidden md:flex glass border border-indigo-500/30 text-indigo-400 text-xs">
-              <Zap className="w-3 h-3 mr-1" />
-              AI Active
-            </Badge>
+            {activeProject?.plan !== "FREE" ? (
+              <Badge className="hidden md:flex bg-indigo-500/10 text-indigo-400 border-indigo-500/20 text-xs py-1">
+                <Zap className="w-3 h-3 mr-1" />
+                PRO Plan
+              </Badge>
+            ) : (
+              <Badge className="hidden md:flex glass border border-indigo-500/30 text-indigo-400 text-xs">
+                <Zap className="w-3 h-3 mr-1" />
+                AI Active
+              </Badge>
+            )}
 
             <button
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               className="p-2 rounded-lg hover:bg-muted transition-colors"
             >
-              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              {mounted && (theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />)}
             </button>
 
             {/* Notifications */}
@@ -301,7 +361,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </motion.div>
 
           {/* Subscription Gate Overlay */}
-          {projects.find(p => p.id === activeProjectId)?.plan === "FREE" && pathname !== "/dashboard/upload" && pathname !== "/dashboard/settings" && (
+          {mounted && projects.find(p => p.id === activeProjectId)?.plan === "FREE" && pathname !== "/dashboard/upload" && pathname !== "/dashboard/settings" && (
             <div className="absolute inset-0 bg-background/60 backdrop-blur-[2px] z-10 flex items-center justify-center p-6">
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -311,7 +371,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div className="w-16 h-16 bg-[var(--accent-glow)] rounded-2xl flex items-center justify-center mx-auto mb-6">
                   <Zap className="w-8 h-8 text-[var(--accent-primary)]" />
                 </div>
-                <h3 className="text-2xl font-syne font-bold mb-3">Upgrade to Pro</h3>
+                <h3 className="text-2xl font-syne font-bold mb-3">Upgrade Your Plan</h3>
                 <p className="text-[var(--text-secondary)] text-sm mb-8 leading-relaxed">
                   You're currently on the Free plan. To access advanced churn heartbeats,
                   custom risk models, and full history, please upgrade your project.
@@ -322,6 +382,29 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     onClick={() => router.push("/pricing")}
                   >
                     View Pricing & Upgrade
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full h-10 text-xs border-white/10 hover:bg-white/5"
+                    onClick={async (e) => {
+                      const btn = e.currentTarget;
+                      btn.disabled = true;
+                      btn.innerHTML = "Syncing...";
+                      try {
+                        const res = await fetch("/api/dodo/sync");
+                        if (res.ok) {
+                          window.location.reload();
+                        }
+                      } catch (err) {
+                        console.error("Sync error:", err);
+                      } finally {
+                        btn.disabled = false;
+                        btn.innerHTML = "Sync Plan Status";
+                      }
+                    }}
+                  >
+                    <RefreshCcw className="w-4 h-4 mr-2" />
+                    Sync Plan Status
                   </Button>
                   <Button
                     variant="ghost"

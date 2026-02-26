@@ -73,46 +73,46 @@ export default function LandingPage() {
 
   const pricingTiers = [
     {
-      tier: "Starter",
+      tier: "Free",
       price: "$0",
-      description: "For small teams just getting started with retention.",
+      description: "Perfect for testing Churnova with limited data.",
       features: [
-        "Up to 1,000 monthly tracked users",
-        "Basic behavioral signals",
-        "Standard dashboards",
+        "Up to 10 customers",
+        "Basic anomaly detection",
+        "Standard dashboard access",
         "Email support"
       ],
-      ctaText: "Get Started Free",
-      ctaHref: "#"
+      ctaText: "Start for Free",
+      ctaHref: "/dashboard"
     },
     {
-      tier: "Pro",
-      price: "$99",
-      description: "Advanced tools for growing SaaS companies.",
+      tier: "Basic",
+      price: "$4.99",
+      description: "Essential insights for growing projects.",
       features: [
-        "Up to 50,000 monthly tracked users",
-        "Advanced retention AI",
-        "Custom health scoring",
-        "Priority 24/7 support",
-        "CRM integrations"
+        "Up to 100 customers",
+        "Advanced AI risk models",
+        "Slack & Email alerts",
+        "Retention health score",
+        "Priority email support"
       ],
-      ctaText: "Try Pro Free",
-      ctaHref: "#",
+      ctaText: "Get Basic",
+      ctaHref: "/pricing",
       isPopular: true
     },
     {
-      tier: "Enterprise",
-      price: "Custom",
-      description: "Scale-ready solutions for large organizations.",
+      tier: "Pro",
+      price: "$12.99",
+      description: "Powerful churn prevention for scale.",
       features: [
-        "Unlimited tracked users",
-        "Dedicated account manager",
+        "Up to 1,000 customers",
         "Custom ML model training",
-        "SLA guarantees",
-        "On-premise deployment"
+        "Real-time anomaly heartbeats",
+        "Full behavioral history",
+        "Priority 24/7 support"
       ],
-      ctaText: "Contact Sales",
-      ctaHref: "#"
+      ctaText: "Upgrade to Pro",
+      ctaHref: "/pricing"
     }
   ];
 
@@ -237,7 +237,7 @@ export default function LandingPage() {
               <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl aspect-video relative overflow-hidden group">
                 <div className="absolute inset-0 bg-gradient-to-br from-[var(--accent-glow)] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <pre className="p-6 font-mono text-[13px] text-[var(--text-secondary)] overflow-x-auto">
-                  <code>{`// Initialize Churnova\nconst analytics = new Churnova('YOUR_API_KEY');\n\n// Identify user\nanalytics.identify('user_123', {\n  plan: 'Enterprise',\n  signup_date: '2023-01-01'\n});\n\n// Track event\nanalytics.track('api_call_success');`}</code>
+                  <code>{`// Initialize Churnova\nconst analytics = new Churnova('YOUR_API_KEY');\n\n// Identify user\nanalytics.identify('user_123', {\n  plan: 'Pro',\n  signup_date: '2023-01-01'\n});\n\n// Track event\nanalytics.track('api_call_success');`}</code>
                 </pre>
               </div>
             </div>
@@ -307,8 +307,8 @@ export default function LandingPage() {
               Start protecting your <br /> revenue today.
             </h2>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <button className="btn-primary px-10 py-4 text-[16px]">Get Started Now</button>
-              <button className="btn-secondary px-10 py-4 text-[16px]">Contact Sales</button>
+              <button className="btn-primary px-10 py-4 text-[16px]" onClick={() => window.location.href = '/dashboard'}>Get Started Now</button>
+              <button className="btn-secondary px-10 py-4 text-[16px]" onClick={() => window.location.href = '/pricing'}>View Pricing</button>
             </div>
           </div>
         </section>

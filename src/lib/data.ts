@@ -30,7 +30,7 @@ const COMPANIES = [
   "Eclipse Systems", "Fusion Analytics",
 ];
 
-const PLANS = ["Starter", "Growth", "Professional", "Enterprise"];
+const PLANS = ["Free", "Basic", "Pro"];
 
 const INSIGHTS = {
   High: [
@@ -63,11 +63,11 @@ function generateEngagementHistory(riskLevel: "Low" | "Medium" | "High"): { date
   const history = [];
   const today = new Date();
   let baseValue = randomBetween(60, 95);
-  
+
   for (let i = 29; i >= 0; i--) {
     const date = new Date(today);
     date.setDate(date.getDate() - i);
-    
+
     let variance = 0;
     if (riskLevel === "High") {
       variance = -randomFloat(1, 4); // consistent decline
@@ -76,14 +76,14 @@ function generateEngagementHistory(riskLevel: "Low" | "Medium" | "High"): { date
     } else {
       variance = randomFloat(-1, 1.5);
     }
-    
+
     baseValue = Math.max(5, Math.min(100, baseValue + variance));
     history.push({
       date: date.toISOString().split("T")[0],
       value: Math.round(baseValue),
     });
   }
-  
+
   return history;
 }
 
@@ -109,7 +109,7 @@ export function generateUsers(count: number = 100): UserRecord[] {
     const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}${randomBetween(1, 99)}@${COMPANIES[randomBetween(0, COMPANIES.length - 1)].toLowerCase().replace(/ /g, "")}.com`;
     const company = COMPANIES[randomBetween(0, COMPANIES.length - 1)];
     const plan = PLANS[randomBetween(0, PLANS.length - 1)];
-    
+
     // Controlled risk distribution: ~30% high, 40% medium, 30% low
     const riskRoll = Math.random();
     let riskLevel: "Low" | "Medium" | "High";
@@ -117,7 +117,7 @@ export function generateUsers(count: number = 100): UserRecord[] {
     let anomalyScore: number;
     let engagementDecline: number;
     let recencyScore: number;
-    
+
     if (riskRoll < 0.3) {
       riskLevel = "High";
       riskScore = randomBetween(71, 98);
@@ -137,26 +137,25 @@ export function generateUsers(count: number = 100): UserRecord[] {
       engagementDecline = randomBetween(0, 15);
       recencyScore = randomFloat(0.7, 1.0);
     }
-    
-    const daysSinceActive = riskLevel === "High" 
+
+    const daysSinceActive = riskLevel === "High"
       ? randomBetween(10, 45)
       : riskLevel === "Medium"
         ? randomBetween(3, 15)
         : randomBetween(0, 5);
-    
+
     const lastActive = new Date();
     lastActive.setDate(lastActive.getDate() - daysSinceActive);
-    
+
     const joinDate = new Date();
     joinDate.setMonth(joinDate.getMonth() - randomBetween(3, 24));
-    
+
     const mrrByPlan: Record<string, number> = {
-      Starter: 99,
-      Growth: 299,
-      Professional: 599,
-      Enterprise: 1999,
+      Free: 0,
+      Basic: 4.99,
+      Pro: 12.99,
     };
-    
+
     users.push({
       id: `USR-${String(i + 1).padStart(4, "0")}`,
       name,
@@ -180,7 +179,7 @@ export function generateUsers(count: number = 100): UserRecord[] {
       engagementHistory: generateEngagementHistory(riskLevel),
     });
   }
-  
+
   return users.sort((a, b) => b.riskScore - a.riskScore);
 }
 
@@ -197,14 +196,14 @@ export function getAnalytics(users: UserRecord[]) {
     const daysDiff = (Date.now() - lastActive.getTime()) / (1000 * 60 * 60 * 24);
     return daysDiff <= 7;
   });
-  
+
   const revenueAtRisk = highRisk.reduce((sum, u) => sum + u.mrr, 0);
   const totalMrr = users.reduce((sum, u) => sum + u.mrr, 0);
   const healthScore = Math.round(
-    ((lowRisk.length * 100 + mediumRisk.length * 50 + highRisk.length * 10) / 
-    (users.length * 100)) * 100
+    ((lowRisk.length * 100 + mediumRisk.length * 50 + highRisk.length * 10) /
+      (users.length * 100)) * 100
   );
-  
+
   return {
     totalUsers: users.length,
     activeUsers: activeUsers.length,
@@ -227,13 +226,13 @@ export function getEngagementTimeline(): { date: string; engagement: number; ses
   const data = [];
   const today = new Date();
   let baseEngagement = 72;
-  
+
   for (let i = 29; i >= 0; i--) {
     const date = new Date(today);
     date.setDate(date.getDate() - i);
     baseEngagement += randomFloat(-2, 2.5);
     baseEngagement = Math.max(55, Math.min(95, baseEngagement));
-    
+
     data.push({
       date: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
       engagement: Math.round(baseEngagement),
@@ -241,7 +240,7 @@ export function getEngagementTimeline(): { date: string; engagement: number; ses
       newUsers: randomBetween(3, 18),
     });
   }
-  
+
   return data;
 }
 

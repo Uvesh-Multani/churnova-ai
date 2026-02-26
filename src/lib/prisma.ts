@@ -4,11 +4,11 @@ import { PrismaLibSql } from "@prisma/adapter-libsql";
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
 const adapter = new PrismaLibSql({
-    url: "file:./dev.db", // Point to the root dev.db where migrate created it
+    url: process.env.DATABASE_URL || "file:./dev.db",
 });
 
 export const prisma =
     globalForPrisma.prisma ||
-    new PrismaClient({ adapter } as any);
+    new PrismaClient({ adapter });
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;

@@ -23,16 +23,22 @@ export async function POST(req: Request) {
         }
 
         // Create Dodo Checkout Session
-        // Note: Dodo Payments SDK usage might vary, assuming create session based on typical SDK patterns
         const session = await dodo.checkoutSessions.create({
-            product_id: productId,
-            quantity: 1,
-            payment_period: "month", // Defaulting to month
-            return_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/dashboard?session_id={checkout_id}`,
+            product_cart: [{
+                product_id: productId,
+                quantity: 1,
+            }],
+            return_url: `${(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "")}/dashboard?session_id={checkout_id}`,
             metadata: {
                 projectId,
                 userId,
-            }
+            },
+            subscription_data: {
+                metadata: {
+                    projectId,
+                    userId,
+                }
+            } as any
         });
 
         return NextResponse.json({ url: session.checkout_url });

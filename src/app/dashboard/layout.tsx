@@ -9,7 +9,7 @@ import {
   LineChart, Moon, Search, Settings, Shield, Sun, TrendingDown, Upload,
   Users, FileText, Zap, X, LogOut, User, ChevronDown, RefreshCcw
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useAppStore } from "@/lib/store";
 import { toast } from "sonner";
 import Badge from "@/components/ui/badge";
@@ -40,7 +40,6 @@ const liveActivity = [
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { theme, setTheme } = useTheme();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const { sidebarCollapsed, setSidebarCollapsed, projects, setProjects, activeProjectId, setActiveProjectId } = useAppStore();
   const activeProject = projects.find(p => p.id === activeProjectId);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -78,52 +77,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     fetchProjects();
   }, [pathname, activeProjectId, router, setProjects, setActiveProjectId]);
 
-  // Session verification polling
-  useEffect(() => {
-    const sessionId = searchParams.get("session_id");
-    if (!sessionId) return;
-
-    let toastId: string | number | undefined;
-
-    const interval = setInterval(async () => {
-      try {
-        if (!toastId) {
-          toastId = toast.loading("Verifying your payment status...");
-        }
-
-        const verifyRes = await fetch(`/api/dodo/verify?session_id=${sessionId}`);
-        if (!verifyRes.ok) return;
-        const verifyData = await verifyRes.json();
-
-        if (verifyData.plan === "PRO") {
-          toast.success("Payment verified! Welcome to PRO.", { id: toastId });
-          const res = await fetch("/api/projects");
-          if (res.ok) {
-            const data = await res.json();
-            setProjects(data);
-          }
-          clearInterval(interval);
-          // Remove session_id from URL
-          const url = new URL(window.location.href);
-          url.searchParams.delete("session_id");
-          router.replace(url.pathname + url.search);
-        } else if (verifyData.status === "failed") {
-          toast.error("Payment failed. Please try again.", { id: toastId });
-          clearInterval(interval);
-        }
-      } catch (err) {
-        console.error("Polling error:", err);
-      }
-    }, 2000);
-
-    return () => {
-      clearInterval(interval);
-      if (toastId) toast.dismiss(toastId);
-    };
-  }, [searchParams, router, setProjects]);
-
   return (
     <div className="min-h-screen bg-background text-foreground flex">
+      <Suspense fallback={null}>
+        <PaymentVerifier />
+      </Suspense>
       {/* Sidebar */}
       <motion.aside
         initial={false}
@@ -421,4 +379,55 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
     </div>
   );
+}
+
+function PaymentVerifier() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const { setProjects } = useAppStore();
+
+  useEffect(() => {
+    const sessionId = searchParams.get("session_id");
+    if (!sessionId) return;
+
+    let toastId: string | number | undefined;
+
+    const interval = setInterval(async () => {
+      try {
+        if (!toastId) {
+          toastId = toast.loading("Verifying your payment status...");
+        }
+
+        const verifyRes = await fetch(`/api/dodo/verify?session_id=${sessionId}`);
+        if (!verifyRes.ok) return;
+        const verifyData = await verifyRes.json();
+
+        if (verifyData.plan === "PRO" || verifyData.plan === "BASIC") {
+          toast.success(`Payment verified! Welcome to ${verifyData.plan}.`, { id: toastId });
+          const res = await fetch("/api/projects");
+          if (res.ok) {
+            const data = await res.json();
+            setProjects(data);
+          }
+          clearInterval(interval);
+          // Remove session_id from URL
+          const url = new URL(window.location.href);
+          url.searchParams.delete("session_id");
+          router.replace(url.pathname + url.search);
+        } else if (verifyData.status === "failed") {
+          toast.error("Payment failed. Please try again.", { id: toastId });
+          clearInterval(interval);
+        }
+      } catch (err) {
+        console.error("Polling error:", err);
+      }
+    }, 2000);
+
+    return () => {
+      clearInterval(interval);
+      if (toastId) toast.dismiss(toastId);
+    };
+  }, [searchParams, router, setProjects]);
+
+  return null;
 }

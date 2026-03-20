@@ -49,7 +49,7 @@ export async function GET(req: Request) {
             }
         });
 
-        return NextResponse.json(customers);
+        return NextResponse.json({ users: customers });
     } catch (error: any) {
         console.error("Customers API Error:", error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

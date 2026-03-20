@@ -1,13 +1,13 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { TrendingDown, TrendingUp, LineChart as LineChartIcon, Calendar } from "lucide-react";
+import { TrendingDown, TrendingUp, LineChart as LineChartIcon, Calendar, RefreshCw } from "lucide-react";
 import {
   AreaChart, Area, LineChart, Line, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   Legend, ReferenceLine
 } from "recharts";
-import { useState } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useAppStore } from "@/lib/store";
 import { getEngagementTimeline, getFeatureUsage } from "@/lib/data";
 import Badge from "@/components/ui/badge";
@@ -15,12 +15,17 @@ import { Button } from "@/components/ui/button";
 
 const PERIODS = ["7d", "30d", "90d"] as const;
 
-export default function EngagementPage() {
+function EngagementContent() {
+  const [mounted, setMounted] = useState(false);
   const { users } = useAppStore();
   const [period, setPeriod] = useState<typeof PERIODS[number]>("30d");
 
-  const timelineData = getEngagementTimeline();
-  const featureData = getFeatureUsage();
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const timelineData = getEngagementTimeline(users);
+  const featureData = getFeatureUsage(users);
 
   // Cohort engagement data by risk level
   const cohortData = Array.from({ length: 12 }, (_, i) => {
@@ -72,6 +77,17 @@ export default function EngagementPage() {
 
   const filteredData = period === "7d" ? timelineData.slice(-7) : period === "30d" ? timelineData : timelineData;
 
+  if (!mounted) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-4">
+          <RefreshCw className="w-8 h-8 animate-spin text-indigo-500" />
+          <p className="text-sm text-muted-foreground">Analyzing engagement vectors...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -82,14 +98,14 @@ export default function EngagementPage() {
             Longitudinal engagement analysis and cohort health
           </p>
         </div>
-        <div className="flex items-center gap-1 glass-card border border-white/10 rounded-xl p-1">
+        <div className="flex items-center gap-1 glass-card border border-slate-200 rounded-xl p-1">
           {PERIODS.map(p => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${period === p
-                  ? "gradient-bg text-white shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
+                ? "gradient-bg text-white shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
                 }`}
             >
               {p}
@@ -106,7 +122,7 @@ export default function EngagementPage() {
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.08 }}
-            className="glass-card rounded-2xl border border-white/8 p-4"
+            className="glass-card rounded-2xl border border-slate-200 p-4 shadow-sm"
           >
             <p className="text-xs text-muted-foreground mb-2">{metric.label}</p>
             <p className="text-2xl font-bold mb-1">{metric.current}</p>
@@ -123,7 +139,7 @@ export default function EngagementPage() {
       </div>
 
       {/* Main Engagement Chart */}
-      <div className="glass-card rounded-2xl border border-white/8 p-5">
+      <div className="glass-card rounded-2xl border border-slate-200 p-5 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="font-semibold text-sm">Platform Engagement Score</h3>
@@ -146,7 +162,7 @@ export default function EngagementPage() {
                 <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
             <XAxis
               dataKey="date"
               tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
@@ -180,11 +196,11 @@ export default function EngagementPage() {
       {/* Sessions + Cohort Charts Row */}
       <div className="grid lg:grid-cols-2 gap-4">
         {/* Session Volume */}
-        <div className="glass-card rounded-2xl border border-white/8 p-5">
+        <div className="glass-card rounded-2xl border border-slate-200 p-5 shadow-sm">
           <h3 className="font-semibold text-sm mb-4">Session Volume Trend</h3>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={sessionData.slice(-14)}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
               <XAxis
                 dataKey="date"
                 tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }}
@@ -207,11 +223,11 @@ export default function EngagementPage() {
         </div>
 
         {/* Cohort Engagement by Risk Level */}
-        <div className="glass-card rounded-2xl border border-white/8 p-5">
+        <div className="glass-card rounded-2xl border border-slate-200 p-5 shadow-sm">
           <h3 className="font-semibold text-sm mb-4">Cohort Engagement by Risk Segment</h3>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={cohortData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
               <XAxis
                 dataKey="month"
                 tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }}
@@ -236,7 +252,7 @@ export default function EngagementPage() {
       </div>
 
       {/* Feature Decline Analysis */}
-      <div className="glass-card rounded-2xl border border-white/8 p-5">
+      <div className="glass-card rounded-2xl border border-slate-200 p-5 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="font-semibold text-sm">Feature Engagement Decline Analysis</h3>
@@ -272,5 +288,13 @@ export default function EngagementPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function EngagementPage() {
+  return (
+    <Suspense fallback={<div className="p-6">Loading engagement data...</div>}>
+      <EngagementContent />
+    </Suspense>
   );
 }

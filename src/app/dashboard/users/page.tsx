@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Badge from "@/components/ui/badge";
 import { toast } from "sonner";
+import { exportHighRiskCSV, exportUsersCSV } from "@/lib/export";
 
 function RiskBadge({ level }: { level: "Low" | "Medium" | "High" }) {
   const cls = level === "High" ? "badge-high" : level === "Medium" ? "badge-medium" : "badge-low";
@@ -61,10 +62,11 @@ export default function UsersPage() {
     if (!activeProjectId) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/customers?projectId=${activeProjectId}&risk=${riskFilter}&search=${search}`);
+      const res = await fetch(`/api/customers?projectId=${activeProjectId}&risk=${riskFilter}&search=${search}&t=${Date.now()}`);
       if (!res.ok) throw new Error("Failed to fetch customers");
       const data = await res.json();
-      setLiveUsers(data);
+      console.log("[USERS PAGE] Fetched Data:", data, "Array Length:", data.users?.length);
+      setLiveUsers(data.users || []);
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -104,19 +106,21 @@ export default function UsersPage() {
   };
 
   const handleExport = () => {
-    const csvContent = [
-      ["ID", "Name", "Risk Score", "Risk Level", "Last Active"].join(","),
-      ...sortedUsers.filter(u => u.riskLevel === "High").map(u =>
-        [u.externalId, u.name, u.healthScore, u.riskLevel, u.lastSeen].join(",")
-      )
-    ].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "high-risk-users.csv";
-    a.click();
+    if (sortedUsers.length === 0) {
+      toast.error("No users to export");
+      return;
+    }
+    exportHighRiskCSV(sortedUsers);
     toast.success("High-risk users exported to CSV");
+  };
+
+  const handleExportAll = () => {
+    if (sortedUsers.length === 0) {
+      toast.error("No users to export");
+      return;
+    }
+    exportUsersCSV(sortedUsers, "churnova_all_users");
+    toast.success(`All ${sortedUsers.length} users exported to CSV`);
   };
 
   const cols = [
@@ -137,14 +141,25 @@ export default function UsersPage() {
             {loading ? "Syncing data..." : `${sortedUsers.length} users tracked`}
           </p>
         </div>
-        <Button
-          size="sm"
-          onClick={handleExport}
-          className="h-8 text-xs gradient-bg text-white border-0 gap-2"
-        >
-          <Download className="w-3 h-3" />
-          Export High-Risk CSV
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleExportAll}
+            className="h-8 text-xs gap-2 border-slate-200"
+          >
+            <Download className="w-3 h-3" />
+            Export All CSV
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleExport}
+            className="h-8 text-xs gradient-bg text-white border-0 gap-2"
+          >
+            <Download className="w-3 h-3" />
+            Export High-Risk CSV
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -153,7 +168,7 @@ export default function UsersPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
           <Input
             placeholder="Search by name, ID, company..."
-            className="pl-8 h-8 text-xs bg-muted/50"
+            className="pl-8 h-8 text-xs bg-slate-50 border-slate-200 focus:bg-white transition-all"
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           />
@@ -167,7 +182,7 @@ export default function UsersPage() {
         <div className="flex items-center gap-2">
           <Filter className="w-3.5 h-3.5 text-muted-foreground" />
           <select
-            className="bg-muted border border-white/5 rounded-lg text-xs px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-500/50"
+            className="bg-white border border-border rounded-lg text-xs px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-500/50 shadow-sm"
             onChange={(e) => {
               const val = e.target.value;
               if (val === "risk") setRiskFilter("High");
@@ -185,8 +200,8 @@ export default function UsersPage() {
               key={level}
               onClick={() => { setRiskFilter(level); setPage(1); }}
               className={`px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200 ${riskFilter === level
-                ? level === "High" ? "badge-high" : level === "Medium" ? "badge-medium" : level === "Low" ? "badge-low" : "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
-                : "bg-muted text-muted-foreground hover:bg-accent"
+                ? level === "High" ? "badge-high" : level === "Medium" ? "badge-medium" : level === "Low" ? "badge-low" : "bg-indigo-50 text-indigo-600 border border-indigo-100 shadow-sm"
+                : "bg-slate-50 text-muted-foreground hover:bg-slate-100 border border-transparent hover:border-slate-200"
                 }`}
             >
               {level}
@@ -196,11 +211,11 @@ export default function UsersPage() {
       </div>
 
       {/* Table */}
-      <div className="glass-card rounded-2xl border border-white/8 overflow-hidden">
+      <div className="glass-card rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-border bg-muted/30">
+              <tr className="border-b border-border bg-slate-50/50">
                 {cols.map((col) => (
                   <th
                     key={col.label}
@@ -222,13 +237,13 @@ export default function UsersPage() {
                   initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.03 }}
-                  className="border-b border-border/50 hover:bg-muted/30 cursor-pointer transition-colors duration-150 group"
+                  className="border-b border-slate-100 hover:bg-indigo-50/30 cursor-pointer transition-colors duration-150 group"
                   onClick={() => router.push(`/dashboard/users/${user.id}`)}
                 >
                   {/* User */}
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                      <div className="w-7 h-7 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-xs font-bold flex-shrink-0 text-indigo-600">
                         {(user.name || user.externalId)[0]}
                       </div>
                       <div className="min-w-0">
@@ -262,7 +277,7 @@ export default function UsersPage() {
         </div>
 
         {/* Pagination */}
-        <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-muted/10">
+        <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-slate-50/30">
           <p className="text-xs text-muted-foreground">
             Showing {(page - 1) * perPage + 1}–{Math.min(page * perPage, sortedUsers.length)} of {sortedUsers.length}
           </p>

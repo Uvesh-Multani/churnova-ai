@@ -23,20 +23,32 @@ export async function GET(req: Request) {
         const mediumRisk = customers.filter(c => c.riskLevel === "Medium").length;
         const lowRisk = customers.filter(c => c.riskLevel === "Low").length;
 
-        // Simulate MRR if not present in schema for now
-        const revenueAtRisk = customers
+        // Accurate MRR calculation
+        const activeCustomers = customers.filter(c => c.subscriptionStatus === "active");
+        const canceledCustomersThisMonth = customers.filter(c =>
+            c.subscriptionStatus === "canceled" &&
+            c.cancelDate &&
+            c.cancelDate.getTime() > Date.now() - 30 * 24 * 60 * 60 * 1000
+        );
+
+        const revenueAtRisk = activeCustomers
             .filter(c => c.riskLevel === "High")
-            .length * 99; // Assume $99 average fallback
+            .reduce((acc, c) => acc + (c.mrr || 0), 0);
 
-        const totalMrr = customers.length * 99;
+        const totalMrr = activeCustomers.reduce((acc, c) => acc + (c.mrr || 0), 0);
 
-        const healthScore = customers.length > 0
-            ? Math.round(customers.reduce((acc, c) => acc + (c.healthScore || 0), 0) / customers.length)
+        // Churn calculation
+        const churnRateMonth = customers.length > 0
+            ? (canceledCustomersThisMonth.length / customers.length) * 100
+            : 0;
+
+        const healthScore = activeCustomers.length > 0
+            ? Math.round(activeCustomers.reduce((acc, c) => acc + (c.healthScore || 0), 0) / activeCustomers.length)
             : 100;
 
         return NextResponse.json({
-            totalUsers: customers.length,
-            activeUsers: customers.filter(c => {
+            totalUsers: activeCustomers.length,
+            activeUsers: activeCustomers.filter(c => {
                 const diff = Date.now() - (c.lastSeen?.getTime() || 0);
                 return diff < 7 * 24 * 60 * 60 * 1000;
             }).length,
@@ -46,6 +58,11 @@ export async function GET(req: Request) {
             revenueAtRisk,
             totalMrr,
             healthScore,
+            churn: {
+                current: parseFloat(churnRateMonth.toFixed(1)),
+                industryAverage: 4.2,
+                topSaaS: 2.5
+            },
             riskDistribution: [
                 { name: "High Risk", value: highRisk, color: "#ef4444" },
                 { name: "Medium Risk", value: mediumRisk, color: "#eab308" },

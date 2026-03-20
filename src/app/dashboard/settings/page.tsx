@@ -2,8 +2,7 @@
 
 import { motion } from "framer-motion";
 import {
-  Settings, Bell, Shield, Database, Palette,
-  Key, Mail, Zap, Check, ChevronRight, Activity, RefreshCcw
+  Key, Mail, Zap, Check, ChevronRight, Settings, Bell, Shield, Database
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,7 @@ import Badge from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
 import { useAppStore } from "@/lib/store";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 
 const TABS = [
   { id: "general", label: "General", icon: Settings },
@@ -23,15 +23,24 @@ const TABS = [
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("general");
-  const { anomalySensitivity, setAnomalySensitivity, activeProjectId, projects } = useAppStore();
+  const { anomalySensitivity, setAnomalySensitivity, activeProjectId, setActiveProjectId, projects, setProjects } = useAppStore();
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
+
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
   const [settings, setSettings] = useState({
     name: "",
     slackWebhookUrl: "",
     alertEmail: "",
     alertsEnabled: true,
   });
+
+  const [apiKeys, setApiKeys] = useState<any[]>([]);
+  const [isKeyModalOpen, setIsKeyModalOpen] = useState(false);
+  const [newKeyName, setNewKeyName] = useState("");
+  const [creatingKey, setCreatingKey] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -48,8 +57,65 @@ export default function SettingsPage() {
           alertsEnabled: (activeProject as any).alertsEnabled !== false,
         });
       }
+      fetchApiKeys();
     }
   }, [activeProjectId, projects]);
+
+  const fetchApiKeys = async () => {
+    if (!activeProjectId) return;
+    try {
+      const res = await fetch(`/api/projects/${activeProjectId}/keys`);
+      if (res.ok) {
+        const data = await res.json();
+        setApiKeys(data.apiKeys);
+      }
+    } catch (e) {
+      console.error("Failed to fetch API keys", e);
+    }
+  };
+
+  const handleCreateApiKey = async () => {
+    if (!activeProjectId || !newKeyName) return;
+    setCreatingKey(true);
+    try {
+      const res = await fetch(`/api/projects/${activeProjectId}/keys`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newKeyName })
+      });
+      if (res.ok) {
+        toast.success("API Key generated successfully");
+        setNewKeyName("");
+        setIsKeyModalOpen(false);
+        fetchApiKeys();
+      } else {
+        toast.error("Failed to generate API Key");
+      }
+    } catch (err) {
+      toast.error("Error connecting to server");
+    } finally {
+      setCreatingKey(false);
+    }
+  };
+
+  const handleRevokeKey = async (keyId: string) => {
+    if (!activeProjectId) return;
+    try {
+      const res = await fetch(`/api/projects/${activeProjectId}/keys`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keyId })
+      });
+      if (res.ok) {
+        toast.success("API Key revoked");
+        fetchApiKeys();
+      } else {
+        toast.error("Failed to revoke API Key");
+      }
+    } catch (err) {
+      toast.error("Error revoking API Key");
+    }
+  };
 
   const handleSave = async () => {
     if (!activeProjectId) return;
@@ -70,34 +136,59 @@ export default function SettingsPage() {
     }
   };
 
-  const handleManagePlan = async () => {
-    if (!activeProjectId) return;
-    const activeProject = projects.find(p => p.id === activeProjectId);
-    if (activeProject?.plan === "FREE") {
-      window.location.href = "/pricing";
+  const handleTestSlack = async () => {
+    if (!activeProjectId || !settings.slackWebhookUrl) {
+      toast.error("Please enter and save a Slack Webhook URL first");
       return;
     }
-
-    setLoading(true);
+    const loadingToast = toast.loading("Sending test alert...");
     try {
-      const res = await fetch("/api/dodo/portal", {
+      const res = await fetch("/api/alerts/slack", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId: activeProjectId }),
+        body: JSON.stringify({ projectId: activeProjectId, message: "🚨 *Test Alert from Churnova AI*\nThis is a test notification to confirm your Slack integration is working perfectly! 🚀" }),
+      });
+      if (res.ok) {
+        toast.success("Test alert sent successfully!", { id: loadingToast });
+      } else {
+        throw new Error("Failed to send");
+      }
+    } catch (e) {
+      toast.error("Failed to send test alert. Check your webhook URL.", { id: loadingToast });
+    }
+  };
+
+  const handleDeleteProject = async () => {
+    if (!activeProjectId || !activeProject) return;
+    if (deleteConfirmName !== activeProject.name) return;
+
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/projects/${activeProjectId}`, {
+        method: "DELETE",
       });
 
-      const { url, error } = await res.json();
-      if (error) throw new Error(error);
-      if (url) window.location.href = url;
+      if (!res.ok) throw new Error("Failed to delete company");
+
+      toast.success("Company deleted successfully");
+      setIsDeleteModalOpen(false);
+      setDeleteConfirmName("");
+
+      const newProjects = projects.filter(p => p.id !== activeProjectId);
+      setProjects(newProjects);
+      setActiveProjectId(newProjects.length > 0 ? newProjects[0].id : null);
+
+      if (newProjects.length === 0) {
+        window.location.href = "/dashboard";
+      }
     } catch (err: any) {
-      toast.error(err.message || "Error opening billing portal");
+      toast.error(err.message || "Error deleting company");
     } finally {
-      setLoading(false);
+      setIsDeleting(false);
     }
   };
 
   const activeProject = projects.find(p => p.id === activeProjectId);
-  const currentPlan = activeProject?.plan || "FREE";
 
   return (
     <div className="p-6 space-y-6 max-w-4xl">
@@ -170,51 +261,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="glass-card rounded-2xl border border-white/8 p-5">
-                  <h3 className="font-semibold text-sm mb-4">Plan & Billing</h3>
-                  <div className="flex items-center justify-between p-4 bg-indigo-500/5 border border-indigo-500/20 rounded-xl">
-                    <div>
-                      <p className="font-semibold text-sm">{currentPlan === "FREE" ? "Free Plan" : currentPlan === "BASIC" ? "Basic Plan" : "Pro Plan"}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {currentPlan === "FREE" ? "Free · Up to 10 customers" : currentPlan === "BASIC" ? "$4.99/month · Up to 100 customers" : "$12.99/month · Up to 1,000 customers"}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Badge className={`text-xs ${currentPlan === "FREE" ? "bg-muted text-muted-foreground" : "bg-green-500/10 text-green-400 border-green-500/20"}`}>
-                        {currentPlan === "FREE" ? "Free" : <><Check className="w-3 h-3 mr-1" /> Active</>}
-                      </Badge>
-                      <div className="pt-4 flex items-center gap-4">
-                        <button
-                          onClick={handleManagePlan}
-                          className="btn-primary px-6 py-2 rounded-xl text-sm font-semibold"
-                          disabled={loading}
-                        >
-                          {currentPlan === "FREE" ? "Upgrade Now" : "Manage Subscription"}
-                        </button>
-                        <button
-                          onClick={async () => {
-                            const toastId = toast.loading("Syncing your subscription...");
-                            try {
-                              const res = await fetch("/api/dodo/sync");
-                              if (!res.ok) throw new Error("Sync failed");
-                              const data = await res.json();
-                              toast.success("Subscription status updated!");
-                              window.location.reload();
-                            } catch (err) {
-                              toast.error("Failed to sync status.");
-                            } finally {
-                              toast.dismiss(toastId);
-                            }
-                          }}
-                          className="px-6 py-2 rounded-xl text-sm font-semibold border border-border hover:bg-muted transition-colors flex items-center gap-2"
-                        >
-                          <Activity className="w-4 h-4" />
-                          Sync Status
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+
 
                 <div className="glass-card rounded-2xl border border-white/8 p-5">
                   <h3 className="font-semibold text-sm mb-4">Integrations</h3>
@@ -251,6 +298,20 @@ export default function SettingsPage() {
                     ))}
                   </div>
                 </div>
+
+                <div className="glass-card rounded-2xl border border-red-500/20 p-5 mt-8">
+                  <h3 className="font-semibold text-sm text-red-500 mb-2">Danger Zone</h3>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    Deleting a company is irreversible. It will permanently remove all associated customers, telemetry events, API keys, and configurations.
+                  </p>
+                  <Button
+                    variant="destructive"
+                    className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/20 transition-colors"
+                    onClick={() => setIsDeleteModalOpen(true)}
+                  >
+                    Delete Company
+                  </Button>
+                </div>
               </div>
             )}
 
@@ -283,6 +344,13 @@ export default function SettingsPage() {
                           onChange={(e) => setSettings({ ...settings, slackWebhookUrl: e.target.value })}
                           className="h-10 text-sm bg-muted/50 flex-1"
                         />
+                        <Button
+                          variant="outline"
+                          className="h-10 border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10"
+                          onClick={handleTestSlack}
+                        >
+                          Test Alert
+                        </Button>
                       </div>
                       <p className="text-[10px] text-muted-foreground">
                         Create an Incoming Webhook in your Slack Workspace to receive real-time churn alerts.
@@ -309,24 +377,26 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="glass-card rounded-2xl border border-white/8 p-5">
+                <div className="glass-card rounded-2xl border border-slate-200 p-5">
                   <h3 className="font-semibold text-sm mb-4">Advanced Configuration</h3>
-                  <div className="space-y-4 opacity-50 pointer-events-none">
+                  <div className="space-y-4">
                     {[
-                      { label: "Weekly Digest Email", desc: "Send weekly risk summary every Monday" },
-                      { label: "Anomaly Spikes", desc: "Alert on sudden anomaly score increases" },
-                      { label: "Revenue Threshold Alert", desc: "Alert when revenue at risk exceeds $50K" },
-                    ].map((alert, i) => (
-                      <div key={i} className="flex items-center justify-between">
+                      { key: "weeklyDigest", label: "Weekly Digest Email", desc: "Send weekly risk summary every Monday" },
+                      { key: "anomalySpikes", label: "Anomaly Spikes", desc: "Alert on sudden anomaly score increases" },
+                      { key: "revenueThreshold", label: "Revenue Threshold Alert", desc: "Alert when revenue at risk exceeds $10K" },
+                    ].map((alert) => (
+                      <div key={alert.key} className="flex items-center justify-between py-1">
                         <div>
                           <p className="text-sm font-medium">{alert.label}</p>
                           <p className="text-xs text-muted-foreground">{alert.desc}</p>
                         </div>
-                        <Switch disabled />
+                        <Switch
+                          defaultChecked={alert.key === "weeklyDigest"}
+                          onCheckedChange={(val) => toast.info(`${alert.label} ${val ? "enabled" : "disabled"}`)}
+                        />
                       </div>
                     ))}
                   </div>
-                  <p className="text-[10px] text-center mt-6 text-indigo-400 font-medium">Enterprise features: Contact support to enable advanced alerting.</p>
                 </div>
               </div>
             )}
@@ -402,27 +472,28 @@ export default function SettingsPage() {
                     <h3 className="font-semibold text-sm">API Keys</h3>
                   </div>
                   <div className="space-y-3">
-                    {[
-                      { name: "Production Key", key: "chur_live_sk_••••••••••••3f9a", created: "Jan 12, 2026", status: "Active" },
-                      { name: "Development Key", key: "chur_test_sk_••••••••••••7c2b", created: "Dec 8, 2025", status: "Active" },
-                    ].map((apiKey) => (
-                      <div key={apiKey.name} className="flex items-center justify-between p-3 bg-muted/30 rounded-xl border border-border">
-                        <div>
-                          <p className="text-sm font-medium">{apiKey.name}</p>
-                          <p className="text-xs font-mono text-muted-foreground mt-0.5">{apiKey.key}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">Created {apiKey.created}</p>
+                    {apiKeys.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">No API Keys created yet.</p>
+                    ) : (
+                      apiKeys.map((apiKey) => (
+                        <div key={apiKey.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-xl border border-border">
+                          <div>
+                            <p className="text-sm font-medium">{apiKey.name}</p>
+                            <p className="text-xs font-mono text-muted-foreground mt-0.5">{apiKey.key}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">Created {new Date(apiKey.createdAt).toLocaleDateString()}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge className="text-xs bg-green-500/10 text-green-400 border-green-500/20">Active</Badge>
+                            <Button size="sm" variant="outline" className="text-xs h-7 hover:bg-red-500/10 hover:text-red-500" onClick={() => handleRevokeKey(apiKey.id)}>Revoke</Button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Badge className="text-xs bg-green-500/10 text-green-400 border-green-500/20">{apiKey.status}</Badge>
-                          <Button size="sm" variant="outline" className="text-xs h-7">Revoke</Button>
-                        </div>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                   <Button
                     size="sm"
-                    className="mt-3 gradient-bg text-white border-0 text-xs h-8 gap-2"
-                    onClick={() => toast.success("New API key generated")}
+                    className="mt-4 gradient-bg text-white border-0 text-xs h-8 gap-2"
+                    onClick={() => setIsKeyModalOpen(true)}
                   >
                     <Key className="w-3 h-3" />
                     Generate New Key
@@ -466,6 +537,75 @@ export default function SettingsPage() {
           </motion.div>
         </div>
       </div>
+
+      {/* Delete Company Modal */}
+      <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-red-500">Delete Company</DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. This will permanently delete the <strong>{activeProject?.name}</strong> company and remove all its data.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <p className="text-sm">Please type <strong className="select-all">{activeProject?.name}</strong> to confirm.</p>
+            <Input
+              value={deleteConfirmName}
+              onChange={(e) => setDeleteConfirmName(e.target.value)}
+              placeholder={activeProject?.name}
+              className="bg-muted/50"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setIsDeleteModalOpen(false); setDeleteConfirmName(""); }}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteProject}
+              disabled={isDeleting || deleteConfirmName !== activeProject?.name}
+            >
+              {isDeleting ? "Deleting..." : "Delete Company"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Key Modal */}
+      <Dialog open={isKeyModalOpen} onOpenChange={setIsKeyModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Create new API Key</DialogTitle>
+            <DialogDescription>
+              Give this key a recognizable name to track its usage. This key will be bound to your active project.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <label htmlFor="keyName" className="text-right text-sm font-medium">
+                Name
+              </label>
+              <Input
+                id="keyName"
+                placeholder="e.g. Production Backend"
+                className="col-span-3 text-sm bg-muted/50"
+                value={newKeyName}
+                onChange={(e) => setNewKeyName(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="submit"
+              className="gradient-bg text-white border-0"
+              onClick={handleCreateApiKey}
+              disabled={creatingKey || !newKeyName}
+            >
+              {creatingKey ? "Creating..." : "Create Key"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

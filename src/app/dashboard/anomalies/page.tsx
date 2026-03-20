@@ -8,7 +8,7 @@ import {
   ScatterChart, Scatter, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ZAxis, Cell
 } from "recharts";
-import { useState } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useAppStore } from "@/lib/store";
 import { getAnomalyData } from "@/lib/data";
 import Badge from "@/components/ui/badge";
@@ -42,10 +42,15 @@ const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<
   return null;
 };
 
-export default function AnomalyPage() {
+function AnomalyContent() {
   const { users, anomalySensitivity, setAnomalySensitivity, runAnalysis, isAnalyzing } = useAppStore();
+  const [mounted, setMounted] = useState(false);
   const allAnomalyData = getAnomalyData(users);
   const [filter, setFilter] = useState<"All" | "High" | "Medium" | "Low">("All");
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const filtered = filter === "All" ? allAnomalyData : allAnomalyData.filter(d => d.risk === filter);
 
@@ -53,6 +58,17 @@ export default function AnomalyPage() {
     .filter(u => u.anomalyScore >= anomalySensitivity / 100)
     .sort((a, b) => b.anomalyScore - a.anomalyScore)
     .slice(0, 8);
+
+  if (!mounted) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-4">
+          <RefreshCw className="w-8 h-8 animate-spin text-indigo-500" />
+          <p className="text-sm text-muted-foreground">Analyzing behavioral patterns...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -88,7 +104,7 @@ export default function AnomalyPage() {
             sub: "Unsupervised anomaly detection", color: "text-indigo-400", bg: "bg-indigo-500/10"
           },
           {
-            icon: Zap, label: "Contamination Rate", value: `${Math.round(users.filter(u => u.anomalyScore > 0.5).length / users.length * 100)}%`,
+            icon: Zap, label: "Contamination Rate", value: `${users.length > 0 ? Math.round(users.filter(u => u.anomalyScore > 0.5).length / users.length * 100) : 0}%`,
             sub: "Users flagged as anomalies", color: "text-purple-400", bg: "bg-purple-500/10"
           },
           {
@@ -96,7 +112,7 @@ export default function AnomalyPage() {
             sub: "Based on training dataset", color: "text-green-400", bg: "bg-green-500/10"
           },
         ].map((item) => (
-          <div key={item.label} className="glass-card rounded-2xl border border-white/8 p-5 flex items-center gap-4">
+          <div key={item.label} className="glass-card rounded-2xl border border-slate-200 p-5 flex items-center gap-4 shadow-sm">
             <div className={`w-10 h-10 rounded-xl ${item.bg} flex items-center justify-center`}>
               <item.icon className={`w-5 h-5 ${item.color}`} />
             </div>
@@ -112,7 +128,7 @@ export default function AnomalyPage() {
       {/* Sensitivity + Scatter */}
       <div className="grid lg:grid-cols-3 gap-4">
         {/* Controls */}
-        <div className="glass-card rounded-2xl border border-white/8 p-5 space-y-4">
+        <div className="glass-card rounded-2xl border border-slate-200 p-5 space-y-4 shadow-sm">
           <h3 className="font-semibold text-sm">Detection Controls</h3>
 
           <div>
@@ -141,8 +157,8 @@ export default function AnomalyPage() {
                   key={level}
                   onClick={() => setFilter(level)}
                   className={`px-2 py-1 rounded-lg text-xs font-medium transition-all ${filter === level
-                      ? "bg-indigo-500/15 text-indigo-400 border border-indigo-500/30"
-                      : "bg-muted text-muted-foreground hover:bg-accent"
+                    ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                 >
                   {level}
@@ -152,12 +168,12 @@ export default function AnomalyPage() {
           </div>
 
           {/* Flagged count */}
-          <div className="glass-card rounded-xl border border-red-500/20 bg-red-500/5 p-3">
+          <div className="glass-card rounded-xl border border-red-100 bg-red-50 p-3">
             <div className="flex items-center gap-2 mb-1">
-              <AlertCircle className="w-4 h-4 text-red-400" />
-              <span className="text-xs font-semibold text-red-400">Flagged Users</span>
+              <AlertCircle className="w-4 h-4 text-red-600" />
+              <span className="text-xs font-semibold text-red-600">Flagged Users</span>
             </div>
-            <p className="text-2xl font-bold text-red-400">{anomalousUsers.length}</p>
+            <p className="text-2xl font-bold text-red-600">{anomalousUsers.length}</p>
             <p className="text-xs text-muted-foreground">above current threshold</p>
           </div>
 
@@ -174,14 +190,14 @@ export default function AnomalyPage() {
         </div>
 
         {/* Scatter Chart */}
-        <div className="lg:col-span-2 glass-card rounded-2xl border border-white/8 p-5">
+        <div className="lg:col-span-2 glass-card rounded-2xl border border-slate-200 p-5 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-sm">Behavioral Anomaly Space</h3>
             <span className="text-xs text-muted-foreground">{filtered.length} users plotted</span>
           </div>
           <ResponsiveContainer width="100%" height={320}>
             <ScatterChart margin={{ bottom: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
               <XAxis
                 type="number"
                 dataKey="x"
@@ -216,51 +232,63 @@ export default function AnomalyPage() {
       </div>
 
       {/* Anomalous Users List */}
-      <div className="glass-card rounded-2xl border border-white/8 overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+      <div className="glass-card rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 bg-slate-50">
           <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-red-400" />
+            <AlertCircle className="w-4 h-4 text-red-600" />
             <h3 className="font-semibold text-sm">Flagged Anomalous Users</h3>
           </div>
           <Badge className="badge-high text-xs">{anomalousUsers.length} flagged</Badge>
         </div>
         <div className="divide-y divide-border/50">
-          {anomalousUsers.map((user, i) => (
-            <motion.div
-              key={user.id}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.06 }}
-              className="flex items-center gap-4 px-5 py-3 hover:bg-muted/20 transition-colors"
-            >
-              <div className="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center text-xs font-bold text-red-400">
-                {user.name.split(" ").map(n => n[0]).join("")}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{user.name}</p>
-                <p className="text-xs text-muted-foreground truncate">{user.aiInsight.slice(0, 80)}...</p>
-              </div>
-              <div className="flex items-center gap-4 text-xs flex-shrink-0">
-                <div className="text-center">
-                  <p className="font-bold font-mono text-red-400">{Math.round(user.anomalyScore * 100)}%</p>
-                  <p className="text-muted-foreground">anomaly</p>
+          {anomalousUsers.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">No anomalous users detected at this threshold.</p>
+          ) : (
+            anomalousUsers.map((user, i) => (
+              <motion.div
+                key={user.id}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.06 }}
+                className="flex items-center gap-4 px-5 py-3 hover:bg-slate-50 transition-colors"
+              >
+                <div className="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center text-xs font-bold text-red-400">
+                  {user.name.split(" ").map(n => n[0]).join("")}
                 </div>
-                <div className="text-center">
-                  <p className="font-bold font-mono">{user.riskScore}</p>
-                  <p className="text-muted-foreground">risk score</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{user.name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{user.aiInsight.slice(0, 80)}...</p>
                 </div>
-                <Button
-                  size="sm"
-                  className="h-7 text-xs px-3 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20"
-                  onClick={() => toast.warning(`Alert triggered for ${user.name}`)}
-                >
-                  Alert
-                </Button>
-              </div>
-            </motion.div>
-          ))}
+                <div className="flex items-center gap-4 text-xs flex-shrink-0">
+                  <div className="text-center">
+                    <p className="font-bold font-mono text-red-600">{Math.round(user.anomalyScore * 100)}%</p>
+                    <p className="text-muted-foreground">anomaly</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="font-bold font-mono">{user.riskScore}</p>
+                    <p className="text-muted-foreground">risk score</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs px-3 bg-red-50 text-red-600 border border-red-100 hover:bg-red-100"
+                    onClick={() => toast.warning(`Alert triggered for ${user.name}`)}
+                  >
+                    Alert
+                  </Button>
+                </div>
+              </motion.div>
+            ))
+          )}
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AnomalyPage() {
+  return (
+    <Suspense fallback={<div className="p-6">Loading anomalies...</div>}>
+      <AnomalyContent />
+    </Suspense>
   );
 }

@@ -1,0 +1,30 @@
+{
+    "anomaly": {
+        "contamination": 0.1,
+        "model": "IsolationForest"
+    },
+    "classification": {
+        "accuracy": 0.9758935993349959,
+        "best_params": {
+            "learning_rate": 0.1,
+            "max_depth": null,
+            "max_iter": 200
+        },
+        "model": "HistGradientBoostingClassifier"
+    },
+    "regression": {
+        "mae": 0.07170872920859077,
+        "best_params": {
+            "l2_regularization": 0.0,
+            "learning_rate": 0.1,
+            "max_depth": null,
+            "max_iter": 200
+        },
+        "model": "HistGradientBoostingRegressor",
+        "feature_importance": {
+            "loginFrequency": 0.5830879422236814,
+            "avgSessionDuration": 0.015469296351310757,
+            "featureUsageRate": 0.4437723611712478
+        }
+    }
+}

@@ -9,14 +9,14 @@ interface FeatureCardProps {
 
 const FeatureCard = ({ icon: Icon, title, description, className = "" }: FeatureCardProps) => {
     return (
-        <div className={`card group hover:border-l-[3px] hover:border-l-[var(--accent-primary)] transition-all duration-300 ${className}`}>
-            <div className="mb-4 text-[var(--accent-primary)]">
-                <Icon size={28} />
+        <div className={`card group cursor-default transition-all duration-300 ${className}`}>
+            <div className="icon-glow mb-5">
+                <Icon size={22} className="text-[var(--accent-primary)]" />
             </div>
-            <h3 className="font-dm-sans font-semibold text-[18px] text-[var(--text-primary)] mb-2">
+            <h3 className="font-dm-sans font-semibold text-[17px] text-[var(--text-primary)] mb-2 tracking-[-0.01em]">
                 {title}
             </h3>
-            <p className="font-dm-sans text-[14px] text-[var(--text-secondary)] leading-relaxed">
+            <p className="font-dm-sans text-[14px] text-[var(--text-muted)] leading-[1.7]">
                 {description}
             </p>
         </div>

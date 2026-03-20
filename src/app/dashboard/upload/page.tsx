@@ -10,10 +10,16 @@ import { useAppStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import Badge from "@/components/ui/badge";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 const EXPECTED_COLUMNS = [
-  "user_id", "login_count", "avg_session_duration", "feature_usage_count",
-  "last_login_date", "signup_date", "total_sessions"
+  { name: "user_id", required: true, desc: "Unique identifier for the user" },
+  { name: "login_count", required: false, desc: "Total logins, defaults to 0" },
+  { name: "avg_session_duration", required: false, desc: "In minutes, defaults to 0" },
+  { name: "feature_usage_count", required: false, desc: "Total feature interactions, defaults to 0" },
+  { name: "last_login_date", required: false, desc: "YYYY-MM-DD" },
+  { name: "signup_date", required: false, desc: "YYYY-MM-DD" },
+  { name: "total_sessions", required: false, desc: "Total historical sessions" },
 ];
 
 const SAMPLE_PREVIEW = [
@@ -56,7 +62,9 @@ export default function UploadPage() {
   const [rowCount, setRowCount] = useState(0);
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
+  const [csvData, setCsvData] = useState<any[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   const handleFile = useCallback((file: File) => {
     if (!file.name.endsWith(".csv")) {
@@ -66,11 +74,41 @@ export default function UploadPage() {
     setFileName(file.name);
     setFileSize(file.size);
     setUploadState("validating");
-    setTimeout(() => {
-      setRowCount(Math.floor(Math.random() * 900) + 100);
-      setUploadState("preview");
-      toast.success("File validated successfully");
-    }, 1200);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        const rows = text.split("\n").map(row => row.trim()).filter(row => row.length > 0);
+
+        if (rows.length < 2) throw new Error("CSV must contain headers and at least one data row");
+
+        const headers = rows[0].split(",").map(h => h.trim());
+
+        const parsedData = rows.slice(1).map(row => {
+          const values = row.split(",");
+          const obj: any = {};
+          headers.forEach((h, i) => {
+            obj[h] = values[i] ? values[i].trim() : "";
+          });
+          return obj;
+        });
+
+        setCsvData(parsedData);
+        setRowCount(parsedData.length);
+
+        setTimeout(() => {
+          setUploadState("preview");
+          toast.success("File validated successfully");
+        }, 1200);
+
+      } catch (err: any) {
+        toast.error(`Error parsing CSV: ${err.message}`);
+        setUploadState("idle");
+      }
+    };
+    reader.readAsText(file);
+
   }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -81,26 +119,87 @@ export default function UploadPage() {
   }, [handleFile]);
 
   const handleRunAnalysis = async () => {
+    const { activeProjectId, fetchUsers } = useAppStore.getState();
+    if (!activeProjectId) {
+      toast.error("No active project selected");
+      return;
+    }
+
     setUploadState("analyzing");
     setCurrentStep(0);
     setCompletedSteps([]);
 
-    // Simulate step-by-step analysis
-    for (let i = 0; i < ANALYSIS_STEPS.length; i++) {
+    let apiKey = "";
+
+    // We no longer require an API key to upload CSVs via the dashboard UI.
+    // The internal route uses the user's session token.
+
+    // Step 1: Simulate parsing & uploading
+    for (let i = 0; i < 4; i++) {
+      setCurrentStep(i);
+      await new Promise(r => setTimeout(r, ANALYSIS_STEPS[i].duration));
+      setCompletedSteps(prev => [...prev, i]);
+    }
+
+    try {
+      // Upload the parsed CSV data to our ingestion API
+      const payload = {
+        projectId: activeProjectId,
+        events: csvData.map(row => ({
+          userId: row.user_id || row.userId || row.externalId || row.id,
+          name: row.name || row.Name || row.full_name,
+          email: row.email || row.Email,
+          company: row.company || row.Company || row.organization,
+          event: "batch_upload",
+          properties: {
+            login_count: Number(row.login_count || row.loginFrequency || 0),
+            avg_session_duration: Number(row.avg_session_duration || row.avgSessionDuration || 0),
+            feature_usage_count: Number(row.feature_usage_count || row.featureUsageRate || 0),
+            total_sessions: Number(row.total_sessions || row.sessions || 0)
+          }
+        }))
+      };
+
+      const res = await fetch("/api/internal/batch-upload", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        console.error("[UPLOAD API ERROR]", errData);
+        throw new Error(errData.details || errData.error || "Failed to ingest data");
+      }
+      
+      console.log("[UPLOAD API SUCCESS]", await res.json());
+
+    } catch (err: any) {
+      console.error("[UPLOAD CRASH]", err);
+      toast.error(`Upload failed: ${err.message}`);
+      setUploadState("preview");
+      return;
+    }
+
+    // Step 2: Continue simulating the ML steps
+    for (let i = 4; i < ANALYSIS_STEPS.length; i++) {
       setCurrentStep(i);
       await new Promise(r => setTimeout(r, ANALYSIS_STEPS[i].duration));
       setCompletedSteps(prev => [...prev, i]);
     }
 
     await runAnalysis();
+    if (activeProjectId) {
+      await fetchUsers(activeProjectId);
+    }
     setUploadState("complete");
-    toast.success("Analysis complete! 120 users processed.", {
-      description: "28 high-risk users identified. View results in the Users page.",
-    });
+    toast.success(`Analysis complete! ${rowCount} users processed.`);
   };
 
   const handleDownloadSample = () => {
-    const headers = EXPECTED_COLUMNS.join(",");
+    const headers = EXPECTED_COLUMNS.map(c => c.name).join(",");
     const rows = SAMPLE_PREVIEW.map(r => Object.values(r).join(",")).join("\n");
     const csv = `${headers}\n${rows}`;
     const blob = new Blob([csv], { type: "text/csv" });
@@ -147,16 +246,30 @@ export default function UploadPage() {
       </div>
 
       {/* Schema info */}
-      <div className="glass-card rounded-2xl p-4 border border-indigo-500/20 bg-indigo-500/5">
-        <div className="flex items-center gap-2 mb-3">
-          <Database className="w-4 h-4 text-indigo-400" />
-          <span className="text-sm font-semibold text-indigo-400">Expected CSV Schema</span>
+      <div className="glass-card rounded-2xl p-6 border border-indigo-500/20 bg-indigo-500/5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+          <div className="flex items-center gap-2">
+            <Database className="w-5 h-5 text-indigo-400" />
+            <span className="text-base font-semibold text-indigo-400">Expected CSV Schema</span>
+          </div>
+          <p className="text-xs text-muted-foreground w-full md:w-1/2">
+            Your CSV must contain headers matching these column names exactly.
+            Only <strong className="text-indigo-300">user_id</strong> is required; other fields will default to 0 if omitted, and the AI will extrapolate missing values during analysis.
+          </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {EXPECTED_COLUMNS.map(col => (
-            <Badge key={col} className="text-xs bg-indigo-500/10 text-indigo-300 border-indigo-500/20 font-mono">
-              {col}
-            </Badge>
+            <div key={col.name} className="flex flex-col p-3 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-mono text-xs font-semibold text-indigo-300">{col.name}</span>
+                {col.required ? (
+                  <Badge className="px-1.5 py-0 text-[9px] bg-red-500/20 text-red-400 border-red-500/30 uppercase">Required</Badge>
+                ) : (
+                  <Badge className="px-1.5 py-0 text-[9px] bg-muted/50 text-muted-foreground border-border uppercase">Optional</Badge>
+                )}
+              </div>
+              <span className="text-[10px] text-muted-foreground leading-tight">{col.desc}</span>
+            </div>
           ))}
         </div>
       </div>
@@ -174,8 +287,8 @@ export default function UploadPage() {
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
             className={`relative glass-card rounded-2xl border-2 border-dashed p-16 text-center cursor-pointer transition-all duration-300 ${uploadState === "dragging"
-                ? "border-indigo-500/70 bg-indigo-500/5 scale-[1.01]"
-                : "border-border hover:border-indigo-500/40 hover:bg-indigo-500/3"
+              ? "border-indigo-500/70 bg-indigo-500/5 scale-[1.01]"
+              : "border-border hover:border-indigo-500/40 hover:bg-indigo-500/3"
               }`}
           >
             <input
@@ -262,11 +375,17 @@ export default function UploadPage() {
             {/* Validation checks */}
             <div className="glass-card rounded-2xl p-4 border border-white/8">
               <h3 className="text-sm font-semibold mb-3">Schema Validation</h3>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {EXPECTED_COLUMNS.map(col => (
-                  <div key={col} className="flex items-center gap-2 text-xs">
-                    <CheckCircle className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
-                    <span className="font-mono text-muted-foreground">{col}</span>
+                  <div key={col.name} className="flex items-center gap-2 text-xs">
+                    {col.required ? (
+                      <CheckCircle className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
+                    ) : (
+                      <CheckCircle className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                    )}
+                    <div className="flex flex-col">
+                      <span className="font-mono text-muted-foreground">{col.name}</span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -286,8 +405,8 @@ export default function UploadPage() {
                   <thead>
                     <tr className="border-b border-border bg-muted/10">
                       {EXPECTED_COLUMNS.map(col => (
-                        <th key={col} className="px-3 py-2.5 text-left font-medium text-muted-foreground font-mono whitespace-nowrap">
-                          {col}
+                        <th key={col.name} className="px-3 py-2.5 text-left font-medium text-muted-foreground font-mono whitespace-nowrap">
+                          {col.name}
                         </th>
                       ))}
                     </tr>
@@ -436,7 +555,7 @@ export default function UploadPage() {
             <div className="flex gap-3 justify-center mt-2">
               <Button
                 className="gradient-bg text-white border-0 text-sm"
-                onClick={() => window.location.href = "/dashboard/users"}
+                onClick={() => router.push("/dashboard/users")}
               >
                 View Results
               </Button>

@@ -19,7 +19,7 @@ export interface UserRecord {
   mrr: number;
   joinDate: string;
   sessions: number;
-  engagementHistory: { date: string; value: number }[];
+  engagementHistory?: { date: string; value: number }[];
 }
 
 const COMPANIES = [
@@ -221,40 +221,69 @@ export function getAnalytics(users: UserRecord[]) {
   };
 }
 
-// Generate engagement timeline data
-export function getEngagementTimeline(): { date: string; engagement: number; sessions: number; newUsers: number }[] {
+// Generate engagement timeline data dynamically based on users
+export function getEngagementTimeline(users: UserRecord[]): { date: string; engagement: number; sessions: number; newUsers: number }[] {
   const data = [];
   const today = new Date();
-  let baseEngagement = 72;
+
+  // Calculate base metrics from actual active project users
+  const avgEngagement = users.length > 0
+    ? users.reduce((sum, u) => sum + (100 - u.riskScore), 0) / users.length
+    : 72;
+  const totalMonthlySessions = users.reduce((sum, u) => sum + (u.sessions || 0), 0) || 250;
+
+  let baseEngagementVal = avgEngagement;
 
   for (let i = 29; i >= 0; i--) {
     const date = new Date(today);
     date.setDate(date.getDate() - i);
-    baseEngagement += randomFloat(-2, 2.5);
-    baseEngagement = Math.max(55, Math.min(95, baseEngagement));
+
+    // Slight jitter to make chart look alive, anchored around real user averages
+    baseEngagementVal += randomFloat(-1.5, 1.5);
+    baseEngagementVal = Math.max(10, Math.min(100, baseEngagementVal));
+
+    // Interpolating back towards true average daily
+    if (Math.abs(baseEngagementVal - avgEngagement) > 10) {
+      baseEngagementVal += (avgEngagement - baseEngagementVal) * 0.1;
+    }
 
     data.push({
       date: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      engagement: Math.round(baseEngagement),
-      sessions: randomBetween(180, 340),
-      newUsers: randomBetween(3, 18),
+      engagement: Math.round(baseEngagementVal),
+      sessions: Math.round((totalMonthlySessions / 30) + randomBetween(-5, 15)),
+      newUsers: randomBetween(0, Math.ceil(users.length / 30) + 2),
     });
   }
 
   return data;
 }
 
-// Feature usage data
-export function getFeatureUsage() {
+// Feature usage data based on user metrics
+export function getFeatureUsage(users: UserRecord[]) {
+  if (users.length === 0) {
+    return [
+      { feature: "Dashboard", usage: 0, prev: 0 },
+      { feature: "Analytics", usage: 0, prev: 0 },
+      { feature: "Reports", usage: 0, prev: 0 },
+      { feature: "Integrations", usage: 0, prev: 0 },
+      { feature: "API Access", usage: 0, prev: 0 },
+      { feature: "Automation", usage: 0, prev: 0 },
+      { feature: "Exports", usage: 0, prev: 0 },
+      { feature: "Alerts", usage: 0, prev: 0 },
+    ];
+  }
+
+  const avgFeatureRate = users.reduce((sum, u) => sum + (u.featureUsageRate || 0), 0) / users.length;
+
   return [
-    { feature: "Dashboard", usage: 94, prev: 96 },
-    { feature: "Analytics", usage: 78, prev: 82 },
-    { feature: "Reports", usage: 65, prev: 71 },
-    { feature: "Integrations", usage: 52, prev: 60 },
-    { feature: "API Access", usage: 48, prev: 45 },
-    { feature: "Automation", usage: 41, prev: 55 },
-    { feature: "Exports", usage: 38, prev: 42 },
-    { feature: "Alerts", usage: 29, prev: 33 },
+    { feature: "Dashboard", usage: Math.min(100, Math.round(avgFeatureRate * 1.3)), prev: Math.min(100, Math.round(avgFeatureRate * 1.35)) },
+    { feature: "Analytics", usage: Math.min(100, Math.round(avgFeatureRate * 1.1)), prev: Math.min(100, Math.round(avgFeatureRate * 1.05)) },
+    { feature: "Reports", usage: Math.min(100, Math.round(avgFeatureRate * 0.9)), prev: Math.round(avgFeatureRate * 0.92) },
+    { feature: "Integrations", usage: Math.round(avgFeatureRate * 0.7), prev: Math.round(avgFeatureRate * 0.65) },
+    { feature: "API Access", usage: Math.round(avgFeatureRate * 0.6), prev: Math.round(avgFeatureRate * 0.58) },
+    { feature: "Automation", usage: Math.round(avgFeatureRate * 0.5), prev: Math.round(avgFeatureRate * 0.6) },
+    { feature: "Exports", usage: Math.round(avgFeatureRate * 0.4), prev: Math.round(avgFeatureRate * 0.45) },
+    { feature: "Alerts", usage: Math.round(avgFeatureRate * 0.3), prev: Math.round(avgFeatureRate * 0.28) },
   ];
 }
 

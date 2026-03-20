@@ -11,13 +11,18 @@ export async function POST(req: Request) {
         const { name } = await req.json();
         if (!name) return NextResponse.json({ error: "Name is required" }, { status: 400 });
 
-        const apiKey = `ch_${uuidv4().replace(/-/g, "")}`;
+        const apiKey = `chr_${uuidv4().replace(/-/g, "")}`;
 
         const project = await prisma.project.create({
             data: {
                 name,
-                apiKey,
                 ownerId: userId,
+                apiKeys: {
+                    create: {
+                        name: "Default API Key",
+                        key: apiKey
+                    }
+                }
             },
         });
 

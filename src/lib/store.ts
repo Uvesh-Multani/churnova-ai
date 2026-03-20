@@ -19,6 +19,7 @@ interface AppState {
   setProjects: (projects: any[]) => void;
   setActiveProjectId: (id: string | null) => void;
   runAnalysis: () => Promise<void>;
+  fetchUsers: (projectId: string) => Promise<void>;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -39,19 +40,49 @@ export const useAppStore = create<AppState>((set, get) => ({
   setProjects: (projects) => set({ projects }),
   setActiveProjectId: (id) => {
     set({ activeProjectId: id });
-    if (id) localStorage.setItem("churnova_active_project", id);
-    else localStorage.removeItem("churnova_active_project");
+    if (id) {
+      localStorage.setItem("churnova_active_project", id);
+      get().fetchUsers(id);
+    } else {
+      localStorage.removeItem("churnova_active_project");
+      set({ users: [] });
+    }
+  },
+
+  fetchUsers: async (projectId: string) => {
+    try {
+      const res = await fetch(`/api/dashboard/customers?projectId=${projectId}&t=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        set({ users: data.users || [] });
+      }
+    } catch (e) {
+      console.error("Failed to fetch users", e);
+    }
   },
 
   runAnalysis: async () => {
-    set({ isAnalyzing: true, analysisProgress: 0 });
+    set({ isAnalyzing: true, analysisProgress: 10 });
 
-    // Simulate ML analysis progress
-    for (let progress = 0; progress <= 100; progress += 5) {
-      await new Promise((resolve) => setTimeout(resolve, 80));
-      set({ analysisProgress: progress });
+    try {
+      const res = await fetch('/api/dashboard/ml/retrain', { method: 'POST' });
+      set({ analysisProgress: 60 });
+
+      if (res.ok) {
+        // Models retrained. Refetch users to get new predictions if any.
+        const projectId = get().activeProjectId;
+        if (projectId) {
+          await get().fetchUsers(projectId);
+        }
+        set({ analysisProgress: 100 });
+      } else {
+        console.error("Retrain failed");
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      set({ isAnalyzing: false });
+      setTimeout(() => set({ analysisProgress: 0 }), 2000);
     }
-
-    set({ isAnalyzing: false, analysisProgress: 100 });
   },
 }));

@@ -7,39 +7,66 @@ datasource db {
 }
 
 model Project {
-  id        String     @id @default(cuid())
+  id              String     @id @default(cuid())
+  name            String
+  ownerId         String
+  slackWebhookUrl String?
+  alertEmail      String?
+  alertsEnabled   Boolean    @default(true)
+  stripeKey       String?
+  dodoWebhookUrl  String?
+  paddleKey       String?
+  razorpayKey     String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  customers       Customer[]
+  apiKeys         ApiKey[]
+}
+
+model ApiKey {
+  id        String   @id @default(cuid())
   name      String
-  apiKey    String     @unique
-  ownerId              String
-  dodoCustomerId     String?
-  dodoSubscriptionId String?
-  plan                 String     @default("FREE")
-  subscriptionStatus   String     @default("active")
-  slackWebhookUrl      String?
-  alertEmail           String?
-  alertsEnabled        Boolean    @default(true)
-  createdAt            DateTime   @default(now())
-  updatedAt            DateTime   @updatedAt
-  customers            Customer[]
+  key       String   @unique
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  
+  @@index([projectId])
 }
 
 model Customer {
-  id            String        @id @default(cuid())
-  externalId    String        @unique
-  email         String?
-  name          String?
-  company       String?
-  lastSeen      DateTime?     @default(now())
-  healthScore   Int?          @default(100)
-  riskLevel     String?       @default("Low")
-  projectId     String
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  project       Project       @relation(fields: [projectId], references: [id])
-  events        Event[]
-  healthHistory HealthScore[]
+  id          String    @id @default(cuid())
+  externalId  String    
+  email       String?
+  name        String?
+  company     String?
+  lastSeen    DateTime? @default(now())
+  healthScore Int?      @default(100)
+  riskLevel   String?   @default("Low")
+
+  // Subscription & Billing Fields
+  subscriptionStatus String?       @default("active")
+  plan               String?       @default("Free")
+  mrr                Float?        @default(0)
+  cancelDate         DateTime?
+  billingCycle       String?       @default("monthly")
+
+  // Telemetry & ML Fields
+  anomalyScore       Float?        @default(0)
+  loginFrequency     Float?        @default(0)
+  avgSessionDuration Float?        @default(0)
+  featureUsageRate   Float?        @default(0)
+  churnProbability   Float?        @default(0)
+  aiInsight          String?
+  projectId          String
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  project            Project       @relation(fields: [projectId], references: [id])
+  events             Event[]
+  healthHistory      HealthScore[]
 
   @@index([projectId])
+  @@unique([projectId, externalId])
 }
 
 model Event {
@@ -47,6 +74,8 @@ model Event {
   name       String
   properties String?
   timestamp  DateTime @default(now())
+  isRead     Boolean  @default(false)
+  isDeleted  Boolean  @default(false)
   customerId String
   customer   Customer @relation(fields: [customerId], references: [id])
 

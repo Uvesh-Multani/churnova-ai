@@ -14,6 +14,8 @@ import { useEffect, useState } from "react";
 import { useAppStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import Badge from "@/components/ui/badge";
+import { toast } from "sonner";
+import { exportAnalyticsSummaryCSV, exportUsersCSV } from "@/lib/export";
 
 
 // Animated KPI counter
@@ -52,12 +54,12 @@ function KPICard({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.5 }}
-      whileHover={{ y: -2, boxShadow: `0 20px 40px ${color}20` }}
-      className="relative glass-card rounded-2xl p-5 border border-white/8 hover:border-white/15 transition-all duration-300 group overflow-hidden"
+      transition={{ delay, duration: 0.5, ease: "easeOut" }}
+      whileHover={{ y: -3, boxShadow: `0 16px 40px -12px ${color}25` }}
+      className="relative glass-card rounded-2xl p-5 transition-all duration-300 group overflow-hidden"
     >
       {/* Background gradient */}
-      <div className={`absolute -right-4 -top-4 w-24 h-24 rounded-full blur-2xl opacity-10 group-hover:opacity-20 transition-opacity`}
+      <div className={`absolute -right-6 -top-6 w-28 h-28 rounded-full blur-[35px] opacity-10 group-hover:opacity-25 transition-opacity duration-500`}
         style={{ background: color }} />
 
       <div className="flex items-start justify-between mb-4 relative">
@@ -72,11 +74,11 @@ function KPICard({
           {change}
         </Badge>
       </div>
-      <div className="relative">
-        <p className="text-2xl font-bold mb-1">
+      <div className="relative mt-2">
+        <p className="text-[28px] font-bold mb-1 tracking-tight text-foreground">
           <AnimatedNumber target={value} prefix={prefix} suffix={suffix} />
         </p>
-        <p className="text-xs text-muted-foreground font-medium">{title}</p>
+        <p className="text-xs text-muted-foreground font-medium tracking-wide uppercase">{title}</p>
       </div>
     </motion.div>
   );
@@ -146,17 +148,22 @@ export default function OverviewPage() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const { users } = useAppStore();
 
   const fetchData = async () => {
     if (!activeProjectId) return;
 
     try {
       const res = await fetch(`/api/analytics/summary?projectId=${activeProjectId}`);
+      if (res.status === 404) {
+        // Project was deleted or ID is stale — layout.tsx will auto-correct activeProjectId
+        return;
+      }
       if (!res.ok) throw new Error("Failed to fetch summary");
       const data = await res.json();
       setStats(data);
       setCharts(data.charts || []);
-      // Customers could be fetched separately if needed, but for now we'll keep it simple
       setCustomers([]);
     } catch (error) {
       console.error("Dashboard fetch error:", error);
@@ -173,6 +180,32 @@ export default function OverviewPage() {
   const handleRefresh = () => {
     setIsRefreshing(true);
     fetchData();
+  };
+
+  const handleExport = () => {
+    setIsExporting(true);
+    try {
+      // Export analytics summary
+      exportAnalyticsSummaryCSV({
+        totalUsers: stats?.totalUsers ?? 0,
+        activeUsers: stats?.activeUsers ?? 0,
+        highRiskUsers: stats?.highRiskUsers ?? 0,
+        mediumRiskUsers: stats?.mediumRiskUsers ?? 0,
+        lowRiskUsers: stats?.lowRiskUsers ?? 0,
+        revenueAtRisk: stats?.revenueAtRisk ?? 0,
+        totalMrr: stats?.totalMrr ?? 0,
+        healthScore: stats?.healthScore ?? 0,
+      });
+      // If we have real users, also export user detail CSV
+      if (users.length > 0) {
+        exportUsersCSV(users, "churnova_full_export");
+      }
+      toast.success("Analytics exported! Check your downloads folder.");
+    } catch (e) {
+      toast.error("Export failed");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   if (loading || !stats) {
@@ -212,9 +245,27 @@ export default function OverviewPage() {
       color: "var(--destructive)",
     },
     {
+      title: "MRR @ Risk",
+      value: stats.revenueAtRisk || 0,
+      prefix: "$",
+      change: "Urgent",
+      changeType: "down" as const,
+      icon: DollarSign,
+      color: "var(--destructive)",
+    },
+    {
+      title: "Churn Rate (Month)",
+      value: stats.churn?.current || 0,
+      suffix: "%",
+      change: `vs ${stats.churn?.industryAverage || 4.2}% avg`,
+      changeType: ((stats.churn?.current || 0) > (stats.churn?.industryAverage || 4.2) ? "down" : "up") as "up" | "down" | "neutral",
+      icon: AlertTriangle,
+      color: "var(--accent-alt)",
+    },
+    {
       title: "Health Score",
       value: stats.healthScore || 0,
-      suffix: "%",
+      suffix: "/100",
       change: "+0%",
       changeType: "neutral" as const,
       icon: BarChart3,
@@ -238,12 +289,60 @@ export default function OverviewPage() {
   return (
     <div className="p-6 space-y-6 max-w-full">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex items-center justify-between"
+      >
         <div>
-          <h1 className="text-2xl font-bold">{activeProject?.name || "Overview"}</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">{activeProject?.name || "Overview"}</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Real-time churn intelligence dashboard
           </p>
+
+          {/* Active Data Pipelines */}
+          <div className="flex flex-wrap items-center gap-2 mt-3">
+            <span className="text-xs font-medium text-muted-foreground mr-1 uppercase tracking-wider">Active Pipelines:</span>
+
+            {activeProject?.stripeKey && (
+              <Badge className="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 gap-1.5 py-0.5 transition-all">
+                <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                Stripe
+              </Badge>
+            )}
+            {activeProject?.razorpayKey && (
+              <Badge className="bg-sky-50 hover:bg-sky-100 text-sky-600 border border-sky-200 gap-1.5 py-0.5 transition-all">
+                <div className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
+                Razorpay
+              </Badge>
+            )}
+            {activeProject?.paddleKey && (
+              <Badge className="bg-amber-50 hover:bg-amber-100 text-amber-600 border border-amber-200 gap-1.5 py-0.5 transition-all">
+                <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                Paddle
+              </Badge>
+            )}
+            {activeProject?.dodoWebhookUrl && (
+              <Badge className="bg-purple-50 hover:bg-purple-100 text-purple-600 border border-purple-200 gap-1.5 py-0.5 transition-all">
+                <div className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+                Dodo
+              </Badge>
+            )}
+            {stats?.totalUsers > 0 && (
+              <span title="Aggregated via CSV Uploads or Developer API">
+                <Badge className="bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 gap-1.5 py-0.5 transition-all">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  Custom Data / CSV
+                </Badge>
+              </span>
+            )}
+
+            {!activeProject?.stripeKey && !activeProject?.razorpayKey && !activeProject?.paddleKey && !activeProject?.dodoWebhookUrl && !(stats?.totalUsers > 0) && (
+              <span className="text-xs text-muted-foreground flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-gray-50 border border-gray-200">
+                <AlertTriangle className="w-3 h-3 text-yellow-500/50" /> No pipelines connected
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -259,12 +358,12 @@ export default function OverviewPage() {
             <RefreshCw className={`w-3 h-3 ${isRefreshing ? "animate-spin" : ""}`} />
             Refresh
           </Button>
-          <Button size="sm" className="h-8 text-xs gradient-bg text-white border-0 gap-2">
+          <Button size="sm" className="h-8 text-xs gradient-bg text-white border-0 gap-2" onClick={handleExport} disabled={isExporting}>
             <Download className="w-3 h-3" />
-            Export
+            {isExporting ? "Exporting..." : "Export CSV"}
           </Button>
         </div>
-      </div>
+      </motion.div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -274,15 +373,20 @@ export default function OverviewPage() {
       </div>
 
       {/* Charts Row 1 */}
-      <div className="grid lg:grid-cols-3 gap-4">
+      <div className="grid lg:grid-cols-3 gap-6">
         {/* Engagement Line Chart */}
-        <div className="lg:col-span-2 glass-card rounded-2xl p-5 border border-white/8">
-          <div className="flex items-center justify-between mb-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.4 }}
+          className="lg:col-span-2 glass-card rounded-2xl p-6"
+        >
+          <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className="font-semibold text-sm">Engagement Over Time</h3>
-              <p className="text-xs text-muted-foreground">30-day rolling average</p>
+              <h3 className="font-semibold text-sm tracking-wide text-foreground">Engagement Over Time</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">30-day rolling average</p>
             </div>
-            <Badge className="text-xs bg-indigo-500/10 text-indigo-400 border-indigo-500/20">
+            <Badge className="text-[10px] bg-indigo-50 text-indigo-600 border-indigo-200 px-2.5 py-1">
               +4.2% vs last month
             </Badge>
           </div>
@@ -294,7 +398,7 @@ export default function OverviewPage() {
                   <stop offset="95%" stopColor="var(--accent-primary)" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
               <XAxis
                 dataKey="date"
                 tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
@@ -326,13 +430,18 @@ export default function OverviewPage() {
               />
             </AreaChart>
           </ResponsiveContainer>
-        </div>
+        </motion.div>
 
         {/* Risk Distribution Pie */}
-        <div className="glass-card rounded-2xl p-5 border border-white/8">
-          <div className="mb-4">
-            <h3 className="font-semibold text-sm">Risk Distribution</h3>
-            <p className="text-xs text-muted-foreground">User segmentation by risk level</p>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.5 }}
+          className="glass-card rounded-2xl p-6 flex flex-col"
+        >
+          <div className="mb-6">
+            <h3 className="font-semibold text-sm tracking-wide text-foreground">Risk Distribution</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">User segmentation by risk level</p>
           </div>
           <ResponsiveContainer width="100%" height={160}>
             <PieChart>
@@ -370,7 +479,7 @@ export default function OverviewPage() {
               </div>
             ))}
           </div>
-        </div>
+        </motion.div>
       </div>
 
       {/* High Risk Alert Banner */}
@@ -378,7 +487,7 @@ export default function OverviewPage() {
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="glass-card rounded-2xl p-4 border border-red-500/20 bg-red-500/5 flex items-center justify-between"
+          className="glass-card rounded-2xl p-4 border-l-4 border-l-red-400 flex items-center justify-between"
         >
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-red-500/15 flex items-center justify-center">

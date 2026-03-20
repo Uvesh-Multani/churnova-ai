@@ -10,13 +10,16 @@ async function main() {
     console.log("Seeding started...");
 
     // 1. Create a Default Project
-    const project = await prisma.project.upsert({
-        where: { apiKey: "ch_test_key_12345" },
-        update: {},
-        create: {
+    const project = await prisma.project.create({
+        data: {
             name: "Acme SaaS",
-            apiKey: "ch_test_key_12345",
             ownerId: "user_2test",
+            apiKeys: {
+                create: {
+                    name: "Default Default",
+                    key: "ch_test_key_12345"
+                }
+            }
         },
     });
 
@@ -28,7 +31,12 @@ async function main() {
     for (const name of customerNames) {
         const externalId = `cust_${name.toLowerCase().replace(" ", "_")}`;
         const customer = await prisma.customer.upsert({
-            where: { externalId },
+            where: {
+                projectId_externalId: {
+                    projectId: project.id,
+                    externalId
+                }
+            },
             update: {},
             create: {
                 externalId,

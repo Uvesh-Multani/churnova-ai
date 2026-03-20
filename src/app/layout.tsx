@@ -46,8 +46,8 @@ export default function RootLayout({
         <body suppressHydrationWarning className="font-sans antialiased bg-base text-primary">
           <ThemeProvider
             attribute="class"
-            defaultTheme="dark"
-            forcedTheme="dark"
+            defaultTheme="light"
+            forcedTheme="light"
             enableSystem={false}
             disableTransitionOnChange={false}
           >

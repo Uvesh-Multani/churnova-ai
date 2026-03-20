@@ -6,18 +6,26 @@ import { calculateCustomerHealth } from "./intelligence";
  */
 export const churnova = {
     async track(apiKey: string, customerId: string, event: string, properties: any = {}) {
-        const project = await prisma.project.findUnique({
-            where: { apiKey },
+        const projectKey = await prisma.apiKey.findUnique({
+            where: { key: apiKey },
+            include: { project: true }
         });
+        const project = projectKey?.project;
 
         if (!project) throw new Error("Invalid API Key");
 
         const customer = await prisma.customer.upsert({
-            where: { externalId: customerId },
+            where: {
+                projectId_externalId: {
+                    projectId: project.id,
+                    externalId: customerId
+                }
+            },
             update: { lastSeen: new Date() },
             create: {
                 externalId: customerId,
                 projectId: project.id,
+                name: `User ${customerId}`,
                 lastSeen: new Date()
             },
         });
@@ -37,16 +45,23 @@ export const churnova = {
     },
 
     async identify(apiKey: string, customerId: string, data: any) {
-        const project = await prisma.project.findUnique({
-            where: { apiKey },
+        const projectKey = await prisma.apiKey.findUnique({
+            where: { key: apiKey },
+            include: { project: true }
         });
+        const project = projectKey?.project;
 
         if (!project) throw new Error("Invalid API Key");
 
         const customer = await prisma.customer.upsert({
-            where: { externalId: customerId },
+            where: {
+                projectId_externalId: {
+                    projectId: project.id,
+                    externalId: customerId
+                }
+            },
             update: { ...data, lastSeen: new Date() },
-            create: { ...data, externalId: customerId, projectId: project.id, lastSeen: new Date() },
+            create: { ...data, externalId: customerId, projectId: project.id, name: data.name || `User ${customerId}`, lastSeen: new Date() },
         });
 
         return customer;

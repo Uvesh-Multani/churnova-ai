@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Syne, DM_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { VisualEditsMessenger } from "orchids-visual-edits";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { ClerkProvider } from "@clerk/nextjs";
@@ -53,7 +52,6 @@ export default function RootLayout({
           >
             {children}
             <Toaster richColors position="top-right" />
-            <VisualEditsMessenger />
           </ThemeProvider>
         </body>
       </html>

@@ -5,6 +5,47 @@ Churnova AI is an **intelligent platform** designed to help SaaS businesses
 data**, using *machine learning* to predict which customers are at risk, and
 then providing **actionable insights and automated alerts** through a user-friendly
 dashboard to inform retention strategies.
+## Visual Overview
+
+```mermaid
+flowchart TD
+    A0["ML Churn Intelligence Pipeline
+"]
+    A1["Customer Data Model & ORM
+"]
+    A2["Data Ingestion API
+"]
+    A3["Global State Management (Zustand Store)
+"]
+    A4["Alerting & Notification System
+"]
+    A5["Dashboard & Analytics Views
+"]
+    A6["Project & API Key Management
+"]
+    A0 -- "Updates Customer Data" --> A1
+    A0 -- "Triggers Alerts" --> A4
+    A0 -- "Provides Insights to" --> A5
+    A1 -- "Feeds Data to ML" --> A0
+    A1 -- "Stores Ingested Data" --> A2
+    A1 -- "Populates UI State" --> A3
+    A1 -- "Provides Alert Context" --> A4
+    A1 -- "Source for Views" --> A5
+    A1 -- "Structures Project Data" --> A6
+    A2 -- "Writes Customer Data" --> A1
+    A2 -- "Triggers Health Calc" --> A0
+    A2 -- "Authenticates with" --> A6
+    A3 -- "Manages UI State" --> A5
+    A3 -- "Initiates ML Retrain" --> A0
+    A3 -- "Stores Active Project" --> A6
+    A4 -- "Displays Notifications" --> A5
+    A4 -- "Uses Project Settings" --> A6
+    A5 -- "Updates UI State" --> A3
+    A5 -- "Manages Project Config" --> A6
+    A6 -- "Persists Project Data" --> A1
+    A6 -- "Issues API Keys" --> A2
+    A6 -- "Defines Alert Channels" --> A4
+```
 
 
 ## Visual Overview

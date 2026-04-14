@@ -11,35 +11,44 @@ dashboard to inform retention strategies.
 
 ```mermaid
 flowchart TD
-    A0["Prisma Data Model
+    A0["ML Churn Intelligence Pipeline
 "]
-    A1["Telemetry Ingestion API
+    A1["Customer Data Model & ORM
 "]
-    A2["ML Churn Prediction Pipeline
+    A2["Data Ingestion API
 "]
-    A3["AI Insights Engine
+    A3["Global State Management (Zustand Store)
 "]
-    A4["Customer Health Scoring Logic
+    A4["Alerting & Notification System
 "]
-    A5["Dashboard Analytics & Reporting
+    A5["Dashboard & Analytics Views
 "]
-    A6["Automated Alerting System
+    A6["Project & API Key Management
 "]
-    A7["Project & API Key Management
-"]
-    A1 -- "Persists raw telemetry" --> A0
-    A7 -- "Manages project entities" --> A0
-    A2 -- "Updates customer predictions" --> A0
-    A4 -- "Calculates and stores health" --> A0
-    A2 -- "Feeds raw model output" --> A3
-    A3 -- "Persists explanations" --> A0
-    A4 -- "Notifies risk changes" --> A6
-    A6 -- "Retrieves alert configurations" --> A0
-    A5 -- "Retrieves data for display" --> A0
-    A5 -- "Triggers model retraining" --> A2
-    A5 -- "Configures report delivery" --> A6
-    A1 -- "Requests health re-evaluation" --> A4
+    A0 -- "Updates Customer Data" --> A1
+    A0 -- "Triggers Alerts" --> A4
+    A0 -- "Provides Insights to" --> A5
+    A1 -- "Feeds Data to ML" --> A0
+    A1 -- "Stores Ingested Data" --> A2
+    A1 -- "Populates UI State" --> A3
+    A1 -- "Provides Alert Context" --> A4
+    A1 -- "Source for Views" --> A5
+    A1 -- "Structures Project Data" --> A6
+    A2 -- "Writes Customer Data" --> A1
+    A2 -- "Triggers Health Calc" --> A0
+    A2 -- "Authenticates with" --> A6
+    A3 -- "Manages UI State" --> A5
+    A3 -- "Initiates ML Retrain" --> A0
+    A3 -- "Stores Active Project" --> A6
+    A4 -- "Displays Notifications" --> A5
+    A4 -- "Uses Project Settings" --> A6
+    A5 -- "Updates UI State" --> A3
+    A5 -- "Manages Project Config" --> A6
+    A6 -- "Persists Project Data" --> A1
+    A6 -- "Issues API Keys" --> A2
+    A6 -- "Defines Alert Channels" --> A4
 ```
+
 
 ## Chapters
 

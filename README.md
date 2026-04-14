@@ -48,40 +48,6 @@ flowchart TD
 ```
 
 
-## Visual Overview
-
-```mermaid
-flowchart TD
-    A0["Prisma Data Model
-"]
-    A1["Telemetry Ingestion API
-"]
-    A2["ML Churn Prediction Pipeline
-"]
-    A3["AI Insights Engine
-"]
-    A4["Customer Health Scoring Logic
-"]
-    A5["Dashboard Analytics & Reporting
-"]
-    A6["Automated Alerting System
-"]
-    A7["Project & API Key Management
-"]
-    A1 -- "Persists raw telemetry" --> A0
-    A7 -- "Manages project entities" --> A0
-    A2 -- "Updates customer predictions" --> A0
-    A4 -- "Calculates and stores health" --> A0
-    A2 -- "Feeds raw model output" --> A3
-    A3 -- "Persists explanations" --> A0
-    A4 -- "Notifies risk changes" --> A6
-    A6 -- "Retrieves alert configurations" --> A0
-    A5 -- "Retrieves data for display" --> A0
-    A5 -- "Triggers model retraining" --> A2
-    A5 -- "Configures report delivery" --> A6
-    A1 -- "Requests health re-evaluation" --> A4
-```
-
 ## Chapters
 
 1. [Project & API Key Management

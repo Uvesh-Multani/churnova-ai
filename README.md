@@ -1,4 +1,4 @@
-# Tutorial: churnova-ai
+# churnova-ai
 
 Churnova AI is an **intelligent platform** designed to help SaaS businesses
 *prevent customer churn*. It does this by **securely collecting customer usage
@@ -52,14 +52,14 @@ flowchart TD
 
 ## Chapters
 
-1. [Project & API Key Management](#Chapter-1-Project-&-API-Key-Management)
-2. [Prisma Data Model](02_prisma_data_model_.md)
-3. [Telemetry Ingestion API](03_telemetry_ingestion_api_.md)
-4. [Customer Health Scoring Logic](04_customer_health_scoring_logic_.md)
-5. [ML Churn Prediction Pipeline](05_ml_churn_prediction_pipeline_.md)
-6. [AI Insights Engine](06_ai_insights_engine_.md)
-7. [Automated Alerting System](07_automated_alerting_system_.md)
-8. [Dashboard Analytics & Reporting](08_dashboard_analytics___reporting_.md)
+1. [Project & API Key Management](#Chapter-1-Project--API-Key-Management)
+2. [Prisma Data Model](#Chapter-2-Prisma-Data-Model)
+3. [Telemetry Ingestion API](#Chapter-3-Telemetry-Ingestion-API)
+4. [Customer Health Scoring Logic](#Chapter-4-Customer-Health-Scoring-Logic)
+5. [ML Churn Prediction Pipeline](#Chapter-5-ML-Churn-Prediction-Pipeline)
+6. [AI Insights Engine](#Chapter-6-AI-Insights-Engine)
+7. [Automated Alerting System](#Chapter-7-Automated-Alerting-System)
+8. [Dashboard Analytics & Reporting](#Chapter-8-Dashboard-Analytics--Reporting)
 
 ---
 
@@ -98,7 +98,7 @@ Let's walk through our "Acme Analytics" example. To start tracking churn for "Ac
 
 1.  **Create a New Project**: You'd name it "Acme Analytics".
 2.  **Receive an API Key**: Churnova AI automatically gives you a special API key for "Acme Analytics".
-3.  **Use the API Key**: You'll then include this API Key in all data you send from "Acme Analytics" to Churnova AI. This is how Churnova knows where the data belongs! (You'll learn more about sending data in [Telemetry Ingestion API](03_telemetry_ingestion_api_.md)).
+3.  **Use the API Key**: You'll then include this API Key in all data you send from "Acme Analytics" to Churnova AI. This is how Churnova knows where the data belongs! (You'll learn more about sending data in [Telemetry Ingestion API](#Chapter-3-Telemetry-Ingestion-API)).
 
 Later, if you also wanted to track "Beta Marketing," you'd simply repeat these steps, creating a new project and getting a new, separate API key for it.
 
@@ -461,13 +461,12 @@ In this chapter, you learned that Churnova AI uses **Projects** to create isolat
 
 Next, we'll dive into how Churnova AI actually stores all this information, including your projects and API keys, using something called a "Prisma Data Model".
 
-[Next Chapter: Prisma Data Model](#-Chapter-2-Prisma-Data-Model)
 
 ---
 
 # Chapter 2: Prisma Data Model
 
-Welcome back! In [Chapter 1: Project & API Key Management](01_project___api_key_management_.md), we learned how Churnova AI organizes your different SaaS applications into "Projects" and secures them with "API Keys." You saw how we create a project and its API key, and how the Churnova AI backend code (`src/app/api/projects/route.ts`) interacts with `prisma.project.create` and `prisma.apiKey.create` to make this happen.
+Welcome back! In [Chapter 1: Project & API Key Management](#Chapter-1-Project--API-Key-Management), we learned how Churnova AI organizes your different SaaS applications into "Projects" and secures them with "API Keys." You saw how we create a project and its API key, and how the Churnova AI backend code (`src/app/api/projects/route.ts`) interacts with `prisma.project.create` and `prisma.apiKey.create` to make this happen.
 
 But wait, where do these "projects," "API keys," and all their details actually *live*? How does Churnova AI *remember* them? That's where the **Prisma Data Model** comes in!
 
@@ -644,7 +643,7 @@ sequenceDiagram
 
 ### Prisma in Action: Connecting to Chapter 1
 
-In [Chapter 1: Project & API Key Management](01_project___api_key_management_.md), we saw this code snippet in our backend when creating a new project:
+In [Chapter 1: Project & API Key Management](#Chapter-1-Project--API-Key-Management), we saw this code snippet in our backend when creating a new project:
 
 ```typescript
 // From src/app/api/projects/route.ts (simplified)
@@ -676,13 +675,12 @@ The Prisma Data Model is the foundational blueprint that structures all data wit
 
 In the next chapter, we'll see how this structured data is filled! We'll explore the **Telemetry Ingestion API**, which is responsible for taking all those customer events from your application and saving them into our carefully designed data model.
 
-[Next Chapter: Telemetry Ingestion API](#Chapter-3-Telemetry-Ingestion-API)
 
 ---
 
 # Chapter 3: Telemetry Ingestion API
 
-Welcome back! In [Chapter 1: Project & API Key Management](01_project___api_key_management_.md), you learned how Churnova AI organizes your different applications into "Projects" and secures them with "API Keys." Then, in [Chapter 2: Prisma Data Model](02_prisma_data_model_.md), we explored the blueprint for how Churnova AI stores all its data, including `Projects`, `ApiKeys`, `Customers`, and `Events`.
+Welcome back! In [Chapter 1: Project & API Key Management](#Chapter-1-Project--API-Key-Management), you learned how Churnova AI organizes your different applications into "Projects" and secures them with "API Keys." Then, in [Chapter 2: Prisma Data Model](#Chapter-2-Prisma-Data-Model), we explored the blueprint for how Churnova AI stores all its data, including `Projects`, `ApiKeys`, `Customers`, and `Events`.
 
 Now, it's time to connect the dots! How does data from *your* application actually *get into* Churnova AI, filling up those `Customer` and `Event` models we talked about? This is where the **Telemetry Ingestion API** comes in.
 
@@ -709,14 +707,14 @@ It handles two main types of incoming data:
 
 1.  **`track`**: This is for recording specific actions or events a customer performs in your application.
     *   **Example**: "User logged in," "Subscription created," "Used Feature X."
-    *   These events will primarily populate the `Event` model in our [Prisma Data Model](02_prisma_data_model_.md).
+    *   These events will primarily populate the `Event` model in our [Prisma Data Model](#Chapter-2-Prisma-Data-Model).
 2.  **`identify`**: This is for updating a customer's profile information or confirming their identity.
     *   **Example**: "John Doe's email is `john@example.com`," "Company name is 'Acme Corp'."
     *   These updates will modify existing records or create new ones in the `Customer` model.
 
 ### How to Use the API: Sending Your Data
 
-To use the Telemetry Ingestion API, your application makes a simple HTTP `POST` request to specific Churnova AI endpoints. Remember that **API Key** from [Chapter 1](01_project___api_key_management_.md)? You'll include that to identify your project!
+To use the Telemetry Ingestion API, your application makes a simple HTTP `POST` request to specific Churnova AI endpoints. Remember that **API Key** from [Chapter 1](#Chapter-1-Project--API-Key-Management)? You'll include that to identify your project!
 
 Let's look at examples for `track` and `identify`.
 
@@ -743,7 +741,7 @@ curl -X POST \
 **Explanation**:
 *   `curl -X POST`: We're sending data to the API.
 *   `http://localhost:3000/api/track`: This is the address of the `track` endpoint (replace `localhost:3000` with your Churnova AI deployment URL).
-*   `-H "Authorization: Bearer ..."`: This is where you put your project's unique `API Key` (the `chr_...` string from [Chapter 1](01_project___api_key_management_.md)). This tells Churnova AI *which project* this data belongs to.
+*   `-H "Authorization: Bearer ..."`: This is where you put your project's unique `API Key` (the `chr_...` string from [Chapter 1](#Chapter-1-Project--API-Key-Management)). This tells Churnova AI *which project* this data belongs to.
 *   `-d '{ ... }'`: This is the data you're sending:
     *   `"externalId"`: Your application's unique ID for the customer. **This is super important!**
     *   `"email"`, `"name"`: Optional profile details.
@@ -839,7 +837,7 @@ sequenceDiagram
     Churnova AI API-->>Your App: Success Response
 ```
 
-Let's dive a bit into the actual code to see how `track` and `identify` are implemented using our [Prisma Data Model](02_prisma_data_model_.md) and the `Prisma Client`.
+Let's dive a bit into the actual code to see how `track` and `identify` are implemented using our [Prisma Data Model](#Chapter-2-Prisma-Data-Model) and the `Prisma Client`.
 
 #### 1. The `/api/track` Endpoint
 
@@ -898,7 +896,7 @@ export async function POST(req: Request) {
 *   **API Key Validation**: The code first extracts the API key from the `Authorization` header. It then uses `prisma.apiKey.findFirst` (with `include: { project: true }`) to find the API key record and its associated `Project`. If the key isn't valid, it sends an `Unauthorized` error.
 *   **`externalId` Check**: It ensures the `externalId` (your app's customer ID) is provided, as this is essential for identifying the customer.
 *   **`prisma.customer.upsert`**: This is a powerful Prisma command!
-    *   `where`: It tries to find a `Customer` using the combination of `projectId` and `externalId`. Remember from [Chapter 2](02_prisma_data_model_.md) that we made this combination `@@unique` in our `Customer` model, so it's a reliable way to find a specific customer.
+    *   `where`: It tries to find a `Customer` using the combination of `projectId` and `externalId`. Remember from [Chapter 2](#Chapter-2-Prisma-Data-Model) that we made this combination `@@unique` in our `Customer` model, so it's a reliable way to find a specific customer.
     *   `update`: If a matching customer is *found*, these fields are updated (e.g., `name`, `email`, `lastSeen`).
     *   `create`: If no matching customer is *found*, a new `Customer` record is created with these initial values.
 *   **`prisma.event.create`**: Finally, a new `Event` record is created, linking it to the `customer.id` that was just found or created. This marks that data was ingested for this customer.
@@ -973,17 +971,16 @@ export const churnova = {
 
 ### Conclusion
 
-The Telemetry Ingestion API is the lifeblood of Churnova AI. It provides the secure, structured, and real-time mechanism for your applications to send crucial customer usage data and profile updates. By using `track` for events and `identify` for profile changes, and authenticating with an `API Key`, your data flows into Churnova AI's [Prisma Data Model](02_prisma_data_model_.md), specifically populating the `Customer` and `Event` records. This continuous stream of fresh data is what makes churn prediction and analytics possible.
+The Telemetry Ingestion API is the lifeblood of Churnova AI. It provides the secure, structured, and real-time mechanism for your applications to send crucial customer usage data and profile updates. By using `track` for events and `identify` for profile changes, and authenticating with an `API Key`, your data flows into Churnova AI's [Prisma Data Model](#Chapter-2-Prisma-Data-Model), specifically populating the `Customer` and `Event` records. This continuous stream of fresh data is what makes churn prediction and analytics possible.
 
 Next, with all this rich customer and event data flowing in, we'll see how Churnova AI starts making sense of it by calculating **Customer Health Scores**.
 
-[Next Chapter: Customer Health Scoring Logic](#-Chapter-4-Customer-Health-Scoring-Logic)
 
 ---
 
 # Chapter 4: Customer Health Scoring Logic
 
-Welcome back! In [Chapter 1: Project & API Key Management](01_project___api_key_management_.md), we set up our secure workspaces, and in [Chapter 2: Prisma Data Model](02_prisma_data_model_.md), we learned how Churnova AI blueprints its data. Then, in [Chapter 3: Telemetry Ingestion API](03_telemetry_ingestion_api_.md), you saw how customer activity and profile updates (`Events` and `Customers`) flow into Churnova AI.
+Welcome back! In [Chapter 1: Project & API Key Management](#Chapter-1-Project--API-Key-Management), we set up our secure workspaces, and in [Chapter 2: Prisma Data Model](#Chapter-2-Prisma-Data-Model), we learned how Churnova AI blueprints its data. Then, in [Chapter 3: Telemetry Ingestion API](#Chapter-3-Telemetry-Ingestion-API), you saw how customer activity and profile updates (`Events` and `Customers`) flow into Churnova AI.
 
 Now that we have all this raw data about what your customers are doing, how do we quickly understand if a customer is happy and engaged, or if they're starting to "drift away"? This is where the **Customer Health Scoring Logic** comes in!
 
@@ -1018,7 +1015,7 @@ It acts like a **simple thermometer for customer well-being**, giving you quick,
 
 Churnova AI calculates customer health scores in two main ways:
 
-1.  **On-Demand (When an Event Happens)**: Every time a customer performs an action (an `Event` is `track`ed via the [Telemetry Ingestion API](03_telemetry_ingestion_api_.md)), Churnova AI immediately recalculates their health score. This means the score is always fresh and reflects the latest activity.
+1.  **On-Demand (When an Event Happens)**: Every time a customer performs an action (an `Event` is `track`ed via the [Telemetry Ingestion API](#Chapter-3-Telemetry-Ingestion-API)), Churnova AI immediately recalculates their health score. This means the score is always fresh and reflects the latest activity.
 2.  **Scheduled (Daily Decay)**: Customers can become inactive over time. To reflect this, Churnova AI runs a daily process that automatically reduces the health score of customers who haven't been active recently. This is called "health decay."
 
 Let's look at an example to understand this:
@@ -1280,13 +1277,12 @@ export async function GET(req: Request) {
 
 The Customer Health Scoring Logic provides Churnova AI with an immediate, rule-based "thermometer" for customer well-being. By calculating a score (0-100) and assigning a risk level (Low, Medium, High) based on recent activity (Recency, Frequency, Volume) and applying a daily decay, it gives you quick, actionable insights into customer engagement. This system helps you identify customers who might need attention *now*, complementing the deeper, predictive analytics we'll explore next.
 
-[Next Chapter: ML Churn Prediction Pipeline](#-Chapter-5-ML-Churn-Prediction-Pipeline)
 
 ---
 
 # Chapter 5: ML Churn Prediction Pipeline
 
-Welcome back! In [Chapter 4: Customer Health Scoring Logic](04_customer_health_scoring_logic_.md), we learned how Churnova AI gives you a quick "thermometer reading" of customer well-being through health scores and simple risk levels (Low, Medium, High). These scores are great for spotting immediate engagement changes.
+Welcome back! In [Chapter 4: Customer Health Scoring Logic](#Chapter-4-Customer-Health-Scoring-Logic), we learned how Churnova AI gives you a quick "thermometer reading" of customer well-being through health scores and simple risk levels (Low, Medium, High). These scores are great for spotting immediate engagement changes.
 
 But what if you want to go deeper? What if you want to know not just that a customer is "medium risk," but *why* they're at risk, *what exact percentage* chance they have of churning, and if there's truly something *unusual* about their behavior that simple rules can't catch?
 
@@ -1302,7 +1298,7 @@ Imagine you run an online learning platform. A customer, Sarah, has a "Medium" h
 
 Simple rules can only take you so far. Human behavior is complex, and many factors, subtle patterns, and hidden relationships contribute to churn. To uncover these, Churnova AI needs to use more powerful tools: **Machine Learning (ML)**.
 
-This is exactly what the **ML Churn Prediction Pipeline** solves. It's the core brain of Churnova AI, designed to process all the customer behavioral data ([Events](02_prisma_data_model_.md) ingested via [Telemetry Ingestion API](03_telemetry_ingestion_api_.md)) and turn it into highly accurate, predictive insights.
+This is exactly what the **ML Churn Prediction Pipeline** solves. It's the core brain of Churnova AI, designed to process all the customer behavioral data ([Events](#Chapter-2-Prisma-Data-Model) ingested via [Telemetry Ingestion API](#Chapter-3-Telemetry-Ingestion-API)) and turn it into highly accurate, predictive insights.
 
 ### What is the ML Churn Prediction Pipeline? Your Sophisticated Oracle
 
@@ -1330,7 +1326,7 @@ The pipeline uses several sophisticated Machine Learning models, working togethe
     *   **Why it's important**: This explains the "oracle's" reasoning, helping you understand the underlying drivers of churn for a specific customer.
     *   **Output**: A human-readable "AI Insight" message for each customer.
 
-This entire pipeline takes raw `loginFrequency`, `avgSessionDuration`, and `featureUsageRate` (which are aggregated from the [Events](02_prisma_data_model_.md) you send) and transforms them into predictive insights.
+This entire pipeline takes raw `loginFrequency`, `avgSessionDuration`, and `featureUsageRate` (which are aggregated from the [Events](#Chapter-2-Prisma-Data-Model) you send) and transforms them into predictive insights.
 
 ### How to Use It: Triggering Predictions
 
@@ -1395,7 +1391,7 @@ Both training and prediction start by getting customer data from the database. T
 *   `avgSessionDuration`: How long their average session is.
 *   `featureUsageRate`: How much they use your app's features.
 
-These features are calculated from the [Events](02_prisma_data_model_.md) you send via the [Telemetry Ingestion API](03_telemetry_ingestion_api_.md).
+These features are calculated from the [Events](#Chapter-2-Prisma-Data-Model) you send via the [Telemetry Ingestion API](#Chapter-3-Telemetry-Ingestion-API).
 
 ```python
 # ml/train.py (simplified) & ml/predict.py (similar start)
@@ -1525,7 +1521,7 @@ def get_insight_message(anomaly_pred, risk_pred, prob_pred, feature_importances,
 
 #### 6. Updating the Database
 
-Finally, all these predictions are written back to the `Customer` model in the database, specifically updating these fields (as defined in our [Prisma Data Model](02_prisma_data_model_.md)):
+Finally, all these predictions are written back to the `Customer` model in the database, specifically updating these fields (as defined in our [Prisma Data Model](#Chapter-2-Prisma-Data-Model)):
 
 *   `anomalyScore`
 *   `riskLevel` (this is the ML-driven one)
@@ -1585,13 +1581,12 @@ The ML Churn Prediction Pipeline is the advanced intelligence hub of Churnova AI
 
 Next, we'll explore how these powerful predictions and insights are gathered and processed to provide a clear, summarized view of your customers, in the **AI Insights Engine**.
 
-[Next Chapter: AI Insights Engine](#Chapter-6-AI-Insights-Engine)
 
 ---
 
 # Chapter 6: AI Insights Engine
 
-Welcome back! In [Chapter 5: ML Churn Prediction Pipeline](05_ml_churn_prediction_pipeline_.md), you learned how Churnova AI uses sophisticated Machine Learning (ML) models to calculate precise churn probabilities, identify anomalous behavior, and classify customers into detailed risk levels. You saw that these models produce numbers – percentages, 0s and 1s, and risk categories.
+Welcome back! In [Chapter 5: ML Churn Prediction Pipeline](#Chapter-5-ML-Churn-Prediction-Pipeline), you learned how Churnova AI uses sophisticated Machine Learning (ML) models to calculate precise churn probabilities, identify anomalous behavior, and classify customers into detailed risk levels. You saw that these models produce numbers – percentages, 0s and 1s, and risk categories.
 
 But imagine you're a product manager. You see a customer with a "78% churn probability" and an "anomaly score of 1.0." What does that *really* mean for your daily work? What *action* should you take? Just seeing numbers isn't enough; you need to understand the *story* behind those numbers.
 
@@ -1611,13 +1606,13 @@ This is exactly the problem the **AI Insights Engine** solves. It's the "voice" 
 
 ### What is the AI Insights Engine? Your Expert Interpreter
 
-Think of the AI Insights Engine as Churnova AI's **smart communication layer**. It takes the sophisticated numerical predictions from the [ML Churn Prediction Pipeline](05_ml_churn_prediction_pipeline_.md) and converts them into:
+Think of the AI Insights Engine as Churnova AI's **smart communication layer**. It takes the sophisticated numerical predictions from the [ML Churn Prediction Pipeline](#Chapter-5-ML-Churn-Prediction-Pipeline) and converts them into:
 
 1.  **Human-Readable Explanations**: Specific sentences that tell you *why* a customer is at risk. For example, instead of just "78% churn," it might say, "Critical Churn Risk (78.1%). The primary driver is critically low feature adoption. The user is struggling to find value."
 2.  **Actionable Recommendations (Playbooks)**: Suggests concrete steps your team can take to intervene. For example, "Trigger an in-app tutorial series" or "Send an automated 'We miss you' email."
 3.  **Aggregated Churn Drivers**: Summarizes the top reasons why multiple customers are at risk, helping you spot broader trends.
 
-It acts as an expert interpreter, leveraging the "feature importance" (which characteristics like `loginFrequency` or `featureUsageRate` were most influential for the prediction, as discussed in [Chapter 5](05_ml_churn_prediction_pipeline_.md)) to explain the "why."
+It acts as an expert interpreter, leveraging the "feature importance" (which characteristics like `loginFrequency` or `featureUsageRate` were most influential for the prediction, as discussed in [Chapter 5](#Chapter-5-ML-Churn-Prediction-Pipeline)) to explain the "why."
 
 ### How to Use It: Getting Actionable Intelligence
 
@@ -1718,14 +1713,14 @@ For a broader view, the Churnova AI "Intelligence" dashboard summarizes the **To
 
 The AI Insights Engine works in two main stages:
 
-1.  **Individual Insight Generation**: During the ML prediction process (specifically in `ml/predict.py` from [Chapter 5](05_ml_churn_prediction_pipeline_.md)), a unique human-readable message is crafted for *each customer*. This message is saved directly into the customer's record in the database (`aiInsight` field in the `Customer` model from [Chapter 2](02_prisma_data_model_.md)).
+1.  **Individual Insight Generation**: During the ML prediction process (specifically in `ml/predict.py` from [Chapter 5](#Chapter-5-ML-Churn-Prediction-Pipeline)), a unique human-readable message is crafted for *each customer*. This message is saved directly into the customer's record in the database (`aiInsight` field in the `Customer` model from [Chapter 2](#Chapter-2-Prisma-Data-Model)).
 2.  **Aggregated Insight Analysis**: When a dashboard or report needs to show "Top Churn Drivers," Churnova AI's backend analyzes these individual `aiInsight` messages across many high-risk customers, groups them into common categories, and provides associated recommendations.
 
 Let's look at the underlying code.
 
 #### 1. Generating Individual Customer Insights (`ml/predict.py`)
 
-As we saw briefly in [Chapter 5](05_ml_churn_prediction_pipeline_.md), the `ml/predict.py` script has a crucial function called `get_insight_message`. This is where the magic of translating numbers to words happens for each customer. It uses the churn probability, anomaly score, and importantly, the "feature importances" (which features like `loginFrequency` had the biggest impact on the prediction) to craft a message.
+As we saw briefly in [Chapter 5](#Chapter-5-ML-Churn-Prediction-Pipeline), the `ml/predict.py` script has a crucial function called `get_insight_message`. This is where the magic of translating numbers to words happens for each customer. It uses the churn probability, anomaly score, and importantly, the "feature importances" (which features like `loginFrequency` had the biggest impact on the prediction) to craft a message.
 
 ```python
 # ml/predict.py (simplified - see full code in Chapter 5 context)
@@ -1899,13 +1894,12 @@ The AI Insights Engine is the crucial bridge between complex Machine Learning pr
 
 Next, we'll explore how these insights and predictions are used to trigger immediate responses, in the **Automated Alerting System**.
 
-[Next Chapter: Automated Alerting System](#-Chapter-7-Automated-Alerting-System)
 
 ---
 
 # Chapter 7: Automated Alerting System
 
-Welcome back! In [Chapter 6: AI Insights Engine](06_ai_insights_engine_.md), you learned how Churnova AI not only predicts churn but also translates complex Machine Learning outputs into understandable explanations and actionable recommendations. You now know *why* a customer is at risk.
+Welcome back! In [Chapter 6: AI Insights Engine](#Chapter-6-AI-Insights-Engine), you learned how Churnova AI not only predicts churn but also translates complex Machine Learning outputs into understandable explanations and actionable recommendations. You now know *why* a customer is at risk.
 
 But what good are these powerful insights if they sit hidden in a dashboard, waiting for someone to log in and check? What if a critical churn risk appears in the middle of the night, or when your team is busy with other tasks? You need to know *immediately* so you can act before it's too late!
 
@@ -1913,7 +1907,7 @@ This is exactly where the **Automated Alerting System** comes in!
 
 ### The Problem: Acting Instantly on Critical Churn Risks
 
-Imagine your SaaS application has a high-value customer, "Acme Corp." The [ML Churn Prediction Pipeline](05_ml_churn_prediction_pipeline_.md) flags Acme Corp's account as "High Risk" with a 75% churn probability because their `featureUsageRate` suddenly plummeted. This is a critical insight from the [AI Insights Engine](06_ai_insights_engine_.md).
+Imagine your SaaS application has a high-value customer, "Acme Corp." The [ML Churn Prediction Pipeline](#Chapter-5-ML-Churn-Prediction-Pipeline) flags Acme Corp's account as "High Risk" with a 75% churn probability because their `featureUsageRate` suddenly plummeted. This is a critical insight from the [AI Insights Engine](#Chapter-6-AI-Insights-Engine).
 
 If no one sees this alert promptly, "Acme Corp" might churn, leading to significant lost revenue. You need a system that:
 1.  **Monitors** for these critical changes in customer health or risk.
@@ -1939,7 +1933,7 @@ Here's how it works:
 
 ### How to Use It: Setting Up Your Alerts (UI)
 
-Setting up alerts in Churnova AI is straightforward and done through your project's settings page. This allows you to define who gets alerted and through which channels for each of your [Projects](01_project___api_key_management_.md).
+Setting up alerts in Churnova AI is straightforward and done through your project's settings page. This allows you to define who gets alerted and through which channels for each of your [Projects](#Chapter-1-Project--API-Key-Management).
 
 **Example Use Case**: You want your customer success team to get a Slack notification when any customer in your "Acme Analytics" project enters a "High Risk" churn state, and also send a summary email to your Head of Customer Success.
 
@@ -1997,7 +1991,7 @@ Here's how you would configure this in the Churnova AI dashboard, referencing `s
 *   **Slack Webhook URL**: You'd paste your unique Slack Incoming Webhook URL here. This is the special address Slack provides for sending messages to a channel.
 *   **Test Alert Button**: Clicking `handleTestSlack` will send a sample message to your configured Slack channel, letting you verify the integration works.
 *   **Alert Recipient Email**: You'd enter the email address (or a comma-separated list of addresses) where you want to receive alert emails.
-*   These settings are saved to your `Project` in the database, as defined in the [Prisma Data Model](02_prisma_data_model_.md).
+*   These settings are saved to your `Project` in the database, as defined in the [Prisma Data Model](#Chapter-2-Prisma-Data-Model).
 
 #### Testing Your Slack Integration
 
@@ -2032,7 +2026,7 @@ const handleTestSlack = async () => {
 
 ### Under the Hood: How Alerts Are Sent
 
-The Automated Alerting System springs into action whenever a customer's `healthScore` or `churnProbability` changes significantly. This usually happens after the [Customer Health Scoring Logic](04_customer_health_scoring_logic_.md) runs or after the [ML Churn Prediction Pipeline](05_ml_churn_prediction_pipeline_.md) updates a customer's record.
+The Automated Alerting System springs into action whenever a customer's `healthScore` or `churnProbability` changes significantly. This usually happens after the [Customer Health Scoring Logic](#Chapter-4-Customer-Health-Scoring-Logic) runs or after the [ML Churn Prediction Pipeline](#Chapter-5-ML-Churn-Prediction-Pipeline) updates a customer's record.
 
 Here's a simplified step-by-step look at how a critical alert is processed:
 
@@ -2063,7 +2057,7 @@ Let's dive into the core code that makes this possible.
 
 #### 1. Triggering `notifyRiskChange`
 
-After a customer's `healthScore` (from [Chapter 4](04_customer_health_scoring_logic_.md)) or `churnProbability` (from [Chapter 5](05_ml_churn_prediction_pipeline_.md)) is updated, Churnova AI's internal logic will call the `notifyRiskChange` function (from `src/lib/alerts.ts`).
+After a customer's `healthScore` (from [Chapter 4](#Chapter-4-Customer-Health-Scoring-Logic)) or `churnProbability` (from [Chapter 5](#Chapter-5-ML-Churn-Prediction-Pipeline)) is updated, Churnova AI's internal logic will call the `notifyRiskChange` function (from `src/lib/alerts.ts`).
 
 ```typescript
 // src/lib/alerts.ts - notifyRiskChange (simplified)
@@ -2113,7 +2107,7 @@ export const alerts = {
 **Explanation**:
 *   The `notifyRiskChange` function receives the `projectId`, `customerId`, and the old and new health scores.
 *   It first checks if the change in score `crossedThreshold` (e.g., dropped below 30) or if there was a `significantDrop`. If not, it stops, meaning no alert is needed.
-*   It then fetches the `project` and `customer` details from the database (using `prisma`). This includes the `slackWebhookUrl` and `alertEmail` stored on the `Project` model (from [Chapter 2: Prisma Data Model](02_prisma_data_model_.md)).
+*   It then fetches the `project` and `customer` details from the database (using `prisma`). This includes the `slackWebhookUrl` and `alertEmail` stored on the `Project` model (from [Chapter 2: Prisma Data Model](#Chapter-2-Prisma-Data-Model)).
 *   If `alertsEnabled` is true and a Slack URL is present, it calls `sendSlackAlert`.
 *   If `alertsEnabled` is true and an `alertEmail` is present, it calls `sendEmailAlert`.
 
@@ -2188,17 +2182,16 @@ export const alerts = {
 
 ### Conclusion
 
-The Automated Alerting System is your proactive defense against customer churn. By continuously monitoring customer health and churn risk (powered by the [Customer Health Scoring Logic](04_customer_health_scoring_logic_.md) and [ML Churn Prediction Pipeline](05_ml_churn_prediction_pipeline_.md)), it ensures that critical changes are immediately communicated to your team via customizable Slack and email notifications. This "smoke detector" for customer health empowers your team to intervene swiftly and effectively, minimizing churn.
+The Automated Alerting System is your proactive defense against customer churn. By continuously monitoring customer health and churn risk (powered by the [Customer Health Scoring Logic](#Chapter-4-Customer-Health-Scoring-Logic) and [ML Churn Prediction Pipeline](#Chapter-5-ML-Churn-Prediction-Pipeline)), it ensures that critical changes are immediately communicated to your team via customizable Slack and email notifications. This "smoke detector" for customer health empowers your team to intervene swiftly and effectively, minimizing churn.
 
 With all this intelligent data and instant alerts, the final piece is to visualize and report on everything. Next, we'll explore how Churnova AI brings all these insights together in user-friendly dashboards and reports, in **Dashboard Analytics & Reporting**.
 
-[Next Chapter: Dashboard Analytics & Reporting](#Chapter-8-Dashboard-Analytics-&-Reporting)
 
 ---
 
 # Chapter 8: Dashboard Analytics & Reporting
 
-Welcome to the final chapter! In [Chapter 7: Automated Alerting System](07_automated_alerting_system_.md), you learned how Churnova AI proactively notifies you about critical churn risks, ensuring your team can react swiftly. Before that, we covered everything from ingesting raw customer data ([Telemetry Ingestion API](03_telemetry_ingestion_api_.md)) and storing it ([Prisma Data Model](02_prisma_data_model_.md)) to calculating health scores ([Customer Health Scoring Logic](04_customer_health_scoring_logic_.md)), predicting churn with Machine Learning ([ML Churn Prediction Pipeline](05_ml_churn_prediction_pipeline_.md)), and generating actionable explanations ([AI Insights Engine](06_ai_insights_engine_.md)).
+Welcome to the final chapter! In [Chapter 7: Automated Alerting System](#Chapter-7-Automated-Alerting-System), you learned how Churnova AI proactively notifies you about critical churn risks, ensuring your team can react swiftly. Before that, we covered everything from ingesting raw customer data ([Telemetry Ingestion API](#Chapter-3-Telemetry-Ingestion-API)) and storing it ([Prisma Data Model](#Chapter-2-Prisma-Data-Model)) to calculating health scores ([Customer Health Scoring Logic](04_customer_health_scoring_logic_.md)), predicting churn with Machine Learning ([ML Churn Prediction Pipeline](#Chapter-5-ML-Churn-Prediction-Pipeline)), and generating actionable explanations ([AI Insights Engine](#Chapter-6-AI-Insights-Engine)).
 
 Now, with all this rich data and intelligence being generated, how do you get a complete, understandable picture of your entire customer base? How do you monitor trends, identify widespread issues, and make strategic decisions without drowning in raw numbers or reacting only to individual alerts?
 
@@ -2285,7 +2278,7 @@ This is often the first page you see when you log in. It provides a high-level s
     <button>Review Risk</button>
 </div>
 ```
-**Explanation**: This dashboard immediately shows key metrics. You can see your `Total Users`, how many are `High Risk Users`, and an `Engagement Over Time` chart based on the [Customer Health Scoring Logic](04_customer_health_scoring_logic_.md). The `Risk Distribution` pie chart visually segments your users by risk level. If there are high-risk users, a prominent banner encourages you to dive deeper.
+**Explanation**: This dashboard immediately shows key metrics. You can see your `Total Users`, how many are `High Risk Users`, and an `Engagement Over Time` chart based on the [Customer Health Scoring Logic](#Chapter-4-Customer-Health-Scoring-Logic). The `Risk Distribution` pie chart visually segments your users by risk level. If there are high-risk users, a prominent banner encourages you to dive deeper.
 
 #### 2. Risk Analysis Page (`/dashboard/risk`)
 
@@ -2338,7 +2331,7 @@ This page provides a more detailed breakdown of your churn risk.
     <!-- A table listing individual high-risk users, their risk scores, MRR, and a call-to-action -->
 </div>
 ```
-**Explanation**: This page goes into detail about the [ML Churn Prediction Pipeline](05_ml_churn_prediction_pipeline_.md). It explains how the risk score is calculated using factors like "Unusual Behavior" (anomaly detection), "Engagement Trend," and "Recent Activity." You can see the `Risk Score Distribution` in a histogram, compare `Healthy vs At-Risk` profiles on a radar chart, and view `Revenue at Risk` by plan. A table of `Top 10 High-Risk Users` allows for targeted interventions.
+**Explanation**: This page goes into detail about the [ML Churn Prediction Pipeline](#Chapter-5-ML-Churn-Prediction-Pipeline). It explains how the risk score is calculated using factors like "Unusual Behavior" (anomaly detection), "Engagement Trend," and "Recent Activity." You can see the `Risk Score Distribution` in a histogram, compare `Healthy vs At-Risk` profiles on a radar chart, and view `Revenue at Risk` by plan. A table of `Top 10 High-Risk Users` allows for targeted interventions.
 
 #### 3. Reports Page (`/dashboard/reports`)
 
@@ -2394,12 +2387,12 @@ This section allows you to generate and manage various downloadable reports.
     <button>Save Schedule</button>
 </div>
 ```
-**Explanation**: This page lists all available reports, such as the `Weekly Risk Summary` (leveraging data from [Chapter 6: AI Insights Engine](06_ai_insights_engine_.md) for top churn drivers). You can `Preview` any report, `Download CSV` versions, and importantly, `Schedule Report` for automated email delivery, directly linking to the features discussed in [Chapter 7: Automated Alerting System](07_automated_alerting_system_.md).
+**Explanation**: This page lists all available reports, such as the `Weekly Risk Summary` (leveraging data from [Chapter 6: AI Insights Engine](#Chapter-6-AI-Insights-Engine) for top churn drivers). You can `Preview` any report, `Download CSV` versions, and importantly, `Schedule Report` for automated email delivery, directly linking to the features discussed in [Chapter 7: Automated Alerting System](#Chapter-7-Automated-Alerting-System).
 
 ### Under the Hood: How the Dashboards Get Their Data
 
 When you navigate through the Churnova AI dashboards, the UI isn't directly looking at the database. Instead, it makes requests to specialized backend API endpoints. These endpoints are designed to:
-1.  **Fetch** raw data from the database (using `Prisma` to access our [Prisma Data Model](02_prisma_data_model_.md)).
+1.  **Fetch** raw data from the database (using `Prisma` to access our [Prisma Data Model](#Chapter-2-Prisma-Data-Model)).
 2.  **Process and Aggregate** that data into digestible summaries (e.g., counting high-risk users, calculating average health scores, grouping events by date).
 3.  **Return** the processed data to the UI in a format that's easy to visualize (e.g., JSON).
 
@@ -2486,8 +2479,8 @@ export async function GET(req: Request) {
 **Explanation**:
 *   The code first ensures the user is authorized and owns the `projectId`.
 *   It then uses `prisma.customer.findMany` to retrieve all customers associated with that project.
-*   It performs simple `filter` and `reduce` operations to calculate `totalUsers`, `highRiskUsers`, and `avgHealth` (using the `healthScore` from [Chapter 4: Customer Health Scoring Logic](04_customer_health_scoring_logic_.md)).
-*   To create the "Engagement Over Time" chart, it fetches `healthHistory` records (from [Chapter 2: Prisma Data Model](02_prisma_data_model_.md)) for the last 30 days using `prisma.healthScore.findMany`.
+*   It performs simple `filter` and `reduce` operations to calculate `totalUsers`, `highRiskUsers`, and `avgHealth` (using the `healthScore` from [Chapter 4: Customer Health Scoring Logic](#Chapter-4-Customer-Health-Scoring-Logic)).
+*   To create the "Engagement Over Time" chart, it fetches `healthHistory` records (from [Chapter 2: Prisma Data Model](#Chapter-2-Prisma-Data-Model)) for the last 30 days using `prisma.healthScore.findMany`.
 *   Finally, it processes these historical records to calculate an average `engagement` score for each day, preparing the data for the chart in the UI.
 
 #### 2. Charts Data Endpoint (`/api/dashboard/charts`)
@@ -2535,11 +2528,11 @@ export async function GET(req: Request) {
 }
 ```
 **Explanation**:
-*   This code fetches `Event` records (the telemetry data from [Chapter 3: Telemetry Ingestion API](03_telemetry_ingestion_api_.md)) for the given `projectId` over the last 30 days.
+*   This code fetches `Event` records (the telemetry data from [Chapter 3: Telemetry Ingestion API](#Chapter-3-Telemetry-Ingestion-API)) for the given `projectId` over the last 30 days.
 *   It then iterates through these events and counts how many happened on each day.
 *   The `dailyEvents` map is transformed into `chartData` with `engagement`, `sessions`, and `newUsers` (simplified metrics based on event counts), which is then sent to the UI for visualization.
 
-Other dashboard pages like `/dashboard/engagement`, `/dashboard/risk`, `/dashboard/anomalies`, and `/dashboard/reports` follow similar patterns: they query specific backend endpoints that aggregate customer data (including `anomalyScore`, `riskLevel`, `churnProbability`, and `aiInsight` from [Chapter 5: ML Churn Prediction Pipeline](05_ml_churn_prediction_pipeline_.md) and [Chapter 6: AI Insights Engine](06_ai_insights_engine_.md)) and present it through interactive charts and tables.
+Other dashboard pages like `/dashboard/engagement`, `/dashboard/risk`, `/dashboard/anomalies`, and `/dashboard/reports` follow similar patterns: they query specific backend endpoints that aggregate customer data (including `anomalyScore`, `riskLevel`, `churnProbability`, and `aiInsight` from [Chapter 5: ML Churn Prediction Pipeline](#Chapter-5-ML-Churn-Prediction-Pipeline) and [Chapter 6: AI Insights Engine](#Chapter-6-AI-Insights-Engine)) and present it through interactive charts and tables.
 
 ### Conclusion
 
